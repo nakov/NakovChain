@@ -31,7 +31,7 @@ module.exports = class Block {
 
         // Calculate the block data hash if it is missing
         if (this.blockDataHash === undefined)
-            this.blockDataHash = Block.calculateBlockDataHash(this);
+            this.blockDataHash = this.calculateBlockDataHash();
 
         // Nonce: number
         this.nonce = nonce;
@@ -44,13 +44,13 @@ module.exports = class Block {
 
         // Calculate the block hash if it is missing
         if (this.blockHash === undefined)
-            this.blockHash = Block.calculateBlockHash(this);
+            this.blockHash = this.calculateBlockHash();
     }
 
-    static calculateBlockDataHash(block) {
+    calculateBlockDataHash() {
         let blockData = {
-            'index': block.index,
-            'transactions': block.transactions.map(t => Object({
+            'index': this.index,
+            'transactions': this.transactions.map(t => Object({
                 'from': t.fromAddress,
                 'to': t.toAddress,
                 'value': t.value,
@@ -60,20 +60,18 @@ module.exports = class Block {
                 'transactionDataHash': t.senderSignature,
                 'senderSignature': t.senderSignature,
                 'minedInBlockIndex': t.minedInBlockIndex,
-                'paid': t.paid,
+                'transferSuccessful': t.transferSuccessful,
             })),
-            'difficulty': block.difficulty,
-            'prevBlockHash': block.prevBlockHash,
-            'minedBy': block.minedBy
+            'difficulty': this.difficulty,
+            'prevBlockHash': this.prevBlockHash,
+            'minedBy': this.minedBy
         };
         let blockDataJSON = JSON.stringify(blockData);
-        let blockDataHash = CryptoJS.SHA256(blockDataJSON).toString();
-        return blockDataHash;
+        this.blockDataHash = CryptoJS.SHA256(blockDataJSON).toString();
     }
 
-    static calculateBlockHash(block) {
-        let data = `${block.blockDataHash}|${block.dateCreated}|${block.nonce}`;
-        let blockHash = CryptoJS.SHA256(data).toString();
-        return blockHash;
+    calculateBlockHash() {
+        let data = `${this.blockDataHash}|${this.dateCreated}|${this.nonce}`;
+        this.blockHash = CryptoJS.SHA256(data).toString();
     }
 };

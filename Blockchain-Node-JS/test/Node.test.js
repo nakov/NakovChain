@@ -4,13 +4,14 @@ const chaiHttp = require('chai-http');
 chai.use(chaiHttp);
 
 describe('Node', () => {
+    const config = require('../src/Config');
     const node = require('../src/Node');
     const app = node.app;
 
     beforeEach(() => {
-        const serverHost = process.env.HTTP_HOST || "localhost";
-        const serverPort = process.env.HTTP_PORT || 5555;
-        node.init(serverHost, serverPort);
+        const Blockchain = require("../src/Blockchain");
+        let chain = new Blockchain(config.genesisBlock, config.startDifficulty);
+        node.init(config.defaultServerHost, config.defaultServerPort, chain);
     });
 
     describe('GET /', () => {

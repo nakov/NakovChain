@@ -1,59 +1,19 @@
+const Blockchain = require("./Blockchain");
+
 let node = {
-    // The `node` object holds the node data:
-    // `host` - the external host / IP address to connect to this node
-    // `port` - listening TCP port number
-    // `selfUrl` - the external base URL of the REST endpoints
-    // `peers` - a list of URLs of the peers, directly connected to this node
-    // `chain` - the blockchain (blocks, transactions, balances, block candidates)
+    host: '',    // the external host / IP address to connect to this node
+    port: 0,     // listening TCP port number
+    selfUrl: '', // the external base URL of the REST endpoints
+    peers: [],   // a list of URLs of the peers, directly connected to this node
+    chain: new Blockchain() // the blockchain (blocks, transactions, ...)
 };
 
-node.init = function(serverHost, serverPort) {
+node.init = function(serverHost, serverPort, blockchain) {
     node.host = serverHost;
     node.port = serverPort;
     node.selfUrl = `http://${serverHost}:${serverPort}`;
+    node.chain = blockchain;
     node.peers = [];
-
-    const Block = require("./Block");
-    const Transaction = require("./Transaction");
-    const Utils = require("./Utils");
-
-    const faucetPrivateKey = 'd816f0c72ecc7dc1f0a8d5294676098ea0d5ee826f5c13c7026952ff8ea24fe4';
-    const faucetAddress = Utils.privateKeyToAddress(faucetPrivateKey);
-    const nullAddress = "0000000000000000000000000000000000000000";
-    const nullPubKey = "00000000000000000000000000000000000000000000000000000000000000000";
-    const nullSignature = [
-        "0000000000000000000000000000000000000000000000000000000000000000",
-        "0000000000000000000000000000000000000000000000000000000000000000"
-    ];
-    const startDifficulty = 5;
-    const genesisDate = "2018-01-01T00:00:00.000Z";
-    const genesisBlock = new Block(
-        0, // block index
-        [
-            new Transaction(
-                nullAddress,   // fromAddress
-                faucetAddress, // toAddress
-                1000000000000, // transactionValue
-                0,             // fee
-                genesisDate,   // dateReceived
-                nullPubKey,    // senderPubKey
-                undefined,     // transactionDataHash
-                nullSignature, // senderSignature
-                0,             // minedInBlockIndex
-                true           // paid
-            )
-        ], // transactions array
-        0,           // difficulty
-        undefined,   // previous block hash
-        nullAddress, // mined by (address)
-        undefined,   // block data hash
-        0,           // nonce
-        genesisDate, // date created
-        undefined    // block hash
-    );
-
-    const Blockchain = require("./Blockchain");
-    node.chain = new Blockchain(genesisBlock, startDifficulty);
 };
 
 // Create the Express app
@@ -94,7 +54,8 @@ app.get('/info', (req, res) => {
 });
 
 app.get('/debug', (req, res) => {
-    res.json(node);
+    const config = require('./Config');
+    res.json({node, config});
 });
 
 app.get('/blocks', (req, res) => {
@@ -124,21 +85,18 @@ app.get('/transactions/:tranHash', (req, res) => {
     if (transaction)
         res.json(transaction);
     else
-        res.status(HttpStatus.NOT_FOUND).json({});
+        res.status(HttpStatus.NOT_FOUND).json({errorMsg: "Invalid transaction hash"});
 });
 
 app.get('/address/:address/transactions', (req, res) => {
     let address = req.params.address;
-    let tranHistory = node.getTransactionHistory(address);
-    if (balance.transactions)
-        res.json(tranHistory);
-    else
-        res.status(HttpStatus.NOT_FOUND).json(tranHistory);
+    let tranHistory = node.chain.getTransactionHistory(address);
+    res.json(tranHistory);
 });
 
 app.get('/address/:address/balance', (req, res) => {
     let address = req.params.address;
-    let balance = node.getAccountBalance(address);
+    let balance = node.chain.getAccountBalance(address);
     if (balance.confirmedBalance)
         res.json(balance);
     else
@@ -147,8 +105,12 @@ app.get('/address/:address/balance', (req, res) => {
 
 app.post('/transactions/send', (req, res) => {
     let sendResult = node.sendNewTransaction(req.body);
-    if (sendResult.transactionHash)
-        res.status(HttpStatus.CREATED).json(sendResult);
+    if (sendResult.transactionDataHash) {
+        res.status(HttpStatus.CREATED).json({
+            transactionDataHash: tran.transactionDataHash
+        });
+        // TODO: send the transaction to all known peers
+    }
     else
         res.status(HttpStatus.BAD_REQUEST).json(sendResult);
 });
@@ -167,12 +129,12 @@ app.post('/peers', (req, res) => {
     if (node.registerNewPeer(peerUrl))
         res.json({ message: "Added peer: " + peerUrl});
     else
-        res.status(409).json({ message: "Cannot add peer: " + peerUrl});
+        res.status(409).json({ errorMsg: "Cannot add peer: " + peerUrl});
 });
 
 app.get('/mining/get-mining-job/:address', (req, res) => {
     let address = req.params.address;
-    let blockCandidate = getMiningJob(address);
+    let blockCandidate = node.chain.getMiningJob(address);
     res.json({
         index: blockCandidate.index,
         transactionsIncluded: blockCandidate.transactions.length,
@@ -186,10 +148,17 @@ app.post('/mining/submit-mined-block', (req, res) => {
     let blockDataHash = req.body.blockDataHash;
     let dateCreated = req.body.dateCreated;
     let nonce = req.body.nonce;
-    let result = node.chain.submitMinedBlock(blockDataHash, dateCreated, nonce);
+    let blockHash = req.body.blockHash;
+    let result = node.chain.submitMinedBlock(
+        blockDataHash, dateCreated, nonce, blockHash);
     if (result.errorMsg)
         res.status(HttpStatus.BAD_REQUEST);
-    res.json(result);
+    else {
+        res.json({"message":
+            `Block accepted, reward paid: ${result.transactions[0].value} microcoins`
+        });
+        // TODO: notify all peers
+    }
 });
 
 node.startServer = function() {

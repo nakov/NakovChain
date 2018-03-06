@@ -3,19 +3,44 @@ const expect = chai.expect;
 
 describe('Transaction', () => {
     const Transaction = require('../src/Transaction');
+    const Utils = require('../src/Utils');
 
-    describe('calculateDataHash(transaction)', () => {
-        it('should return correct data hash', () => {
+    describe('calculateDataHash()', () => {
+        it('should calculate correct data hash', () => {
             let tran = new Transaction(
                 "aa5d9d47474b26927827c88a162b2e150349e10f", // fromAddress
                 "3d5c0bfbbb3dd69e7f04d80e6f206f0b54b7eb88", // toAddress
                 50000,                                      // transactionValue
                 20,                                         // fee
-                "2018-03-01T20:11:58.441Z",                 // dateReceived
+                "2018-03-01T20:11:58.441Z",                 // dateCreated
                 "f73df83ca0f807528a83bfacf2a935f8c7a37a5b5ce06e393707b798804c71b01",    // senderPubKey
             );
-            let tranDataHash = Transaction.calculateDataHash(tran);
-            expect(tranDataHash).to.be.equal("0e45c340a7e63c987d2f331ca656768f723f8c7bf902de91ac9b34dd837b6f5e");
+            tran.calculateDataHash();
+            expect(tran.transactionDataHash).to.be.equal("0e45c340a7e63c987d2f331ca656768f723f8c7bf902de91ac9b34dd837b6f5e");
+        });
+    });
+
+    describe('sign(privateKey)', () => {
+        it('should calculate correct signature', () => {
+            let senderPrivKey =
+                "7e4670ae70c98d24f3662c172dc510a085578b9ccc717e6c2f4e547edd960a34";
+            let senderPubKey = Utils.privateKeyToPublicKey(senderPrivKey);
+            let senderAddress = Utils.publicKeyToAddress(senderPubKey);
+            let tran = new Transaction(
+                senderAddress,                              // fromAddress
+                "f51362b7351ef62253a227a77751ad9b2302f911", // toAddress
+                25000,                                      // transactionValue
+                10,                                         // fee
+                "2018-02-10T17:53:48.972Z",                 // dateCreated
+                senderPubKey,                               // senderPubKey
+            );
+            tran.sign(senderPrivKey);
+            expect(tran.senderSignature.length).to.be.equal(2);
+            expect(tran.senderSignature[0]).to.be.equal(
+                "1aaf55dcb11060749b391d547f37b4727222dcb90e793d9bdb945c64fe4968b0");
+            expect(tran.senderSignature[1]).to.be.equal(
+                "87250a2841f7a56910b0f7ebdd067589632ccf19d352c15f16cfdba9b7687960"
+            );
         });
     });
 });
