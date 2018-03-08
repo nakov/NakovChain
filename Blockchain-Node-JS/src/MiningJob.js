@@ -5,6 +5,6 @@ module.exports = class MiningJob {
         this.transactions = transactions;
         this.transactionsHash = transactionsHash;
         this.prevBlockHash = prevBlockHash;
-        this.difficulty = difficulty;
+        this.currentDifficulty = difficulty;
     }
 };

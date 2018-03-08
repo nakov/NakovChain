@@ -45,7 +45,7 @@ app.get('/info', (req, res) => {
         "about": "NakovChain/0.1-js",
         "nodeUrl": node.selfUrl,
         "peers": node.peers.length,
-        "difficulty": node.chain.difficulty,
+        "currentDifficulty": node.chain.currentDifficulty,
         "blocks": node.chain.blocks.length,
         "cumulativeDifficulty": node.chain.calcCumulativeDifficulty(),
         "confirmedTransactions": node.chain.getConfirmedTransactions().length,
@@ -55,8 +55,17 @@ app.get('/info', (req, res) => {
 
 app.get('/debug', (req, res) => {
     const config = require('./Config');
-    const confirmedBalances = node.chain.calcAllConfirmedBalances();
+    let confirmedBalances = node.chain.calcAllConfirmedBalances();
     res.json({node, config, confirmedBalances});
+});
+
+app.get('/debug/mine/:minerAddress/:difficulty', (req, res) => {
+    let minerAddress = req.params.minerAddress;
+    let difficulty = parseInt(req.params.difficulty) || 3;
+    let result = node.chain.mineNextBlock(minerAddress, difficulty);
+    if (result.errorMsg)
+        res.status(HttpStatus.BAD_REQUEST);
+    res.json(result);
 });
 
 app.get('/blocks', (req, res) => {

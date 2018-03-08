@@ -20,7 +20,7 @@ module.exports = class Block {
 
         // Calculate the block data hash if it is missing
         if (this.blockDataHash === undefined)
-            this.blockDataHash = this.calculateBlockDataHash();
+            this.calculateBlockDataHash();
 
         this.nonce = nonce; // integer
         this.dateCreated = dateCreated; // ISO8601_string
@@ -28,7 +28,7 @@ module.exports = class Block {
 
         // Calculate the block hash if it is missing
         if (this.blockHash === undefined)
-            this.blockHash = this.calculateBlockHash();
+            this.calculateBlockHash();
     }
 
     calculateBlockDataHash() {
@@ -46,7 +46,7 @@ module.exports = class Block {
                 'minedInBlockIndex': t.minedInBlockIndex,
                 'transferSuccessful': t.transferSuccessful,
             })),
-            'difficulty': this.difficulty,
+            "difficulty": this.difficulty,
             'prevBlockHash': this.prevBlockHash,
             'minedBy': this.minedBy
         };

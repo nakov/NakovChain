@@ -30,7 +30,7 @@ const genesisFaucetTransaction = new Transaction(
 const genesisBlock = new Block(
     0,           // block index
     [genesisFaucetTransaction], // transactions array
-    0,           // difficulty
+    0,           // currentDifficulty
     undefined,   // previous block hash
     nullAddress, // mined by (address)
     undefined,   // block data hash

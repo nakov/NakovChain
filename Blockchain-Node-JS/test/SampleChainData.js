@@ -16,12 +16,18 @@ const peterPrivateKey = '2f445ff86ec6375b4950cfbd61eea02e65833ead44811d30ace36dd
 const peterAddress = CryptoUtils.privateKeyToAddress(peterPrivateKey);
 const peterPubKey = CryptoUtils.privateKeyToPublicKey(peterPrivateKey);
 
+function currentDateMinus(seconds) {
+    let currentDate = new Date();
+    let date = new Date(currentDate - seconds * 1000);
+    return date.toISOString();
+}
+
 let aliceFaucetTran = new Transaction(
     config.faucetAddress,       // from address
     aliceAddress,               // to address
     500000,                     // value of transfer
     config.minTransactionFee,   // fee
-    "2018-01-01T00:01:23.456Z", // dateCreated
+    currentDateMinus(900),      // dateCreated
     config.faucetPublicKey      // senderPubKey
 );
 aliceFaucetTran.sign(config.faucetPrivateKey);
@@ -31,7 +37,7 @@ let bobFaucetTran = new Transaction(
     bobAddress,                 // to address
     700000,                     // value of transfer
     config.minTransactionFee,   // fee
-    "2018-01-01T00:02:34.567Z", // dateCreated
+    currentDateMinus(800),      // dateCreated
     config.faucetPublicKey      // senderPubKey
 );
 bobFaucetTran.sign(config.faucetPrivateKey);
@@ -41,7 +47,7 @@ let aliceToBobTranOK = new Transaction(
     bobAddress,                 // to address
     9999,                       // value of transfer
     20,                         // fee
-    "2018-01-01T00:01:24.567Z", // dateCreated
+    currentDateMinus(700),      // dateCreated
     alicePubKey                 // senderPubKey
 );
 aliceToBobTranOK.sign(alicePrivateKey);
@@ -51,7 +57,7 @@ let aliceToBobTranNoFunds = new Transaction(
     bobAddress,                 // to address
     1234567890,                 // value of transfer
     20,                         // fee
-    "2018-01-01T00:01:25.678Z", // dateCreated
+    currentDateMinus(600),      // dateCreated
     alicePubKey                 // senderPubKey
 );
 aliceToBobTranNoFunds.sign(alicePrivateKey);
@@ -61,7 +67,7 @@ let peterToBobTranZeroBalance = new Transaction(
     bobAddress,                 // to address
     8888888,                    // value of transfer
     config.minTransactionFee,   // fee
-    "2018-01-01T00:02:12.345Z", // dateCreated
+    currentDateMinus(500),      // dateCreated
     peterPubKey                 // senderPubKey
 );
 peterToBobTranZeroBalance.sign(peterPrivateKey);
@@ -71,7 +77,7 @@ let alicePendingFaucetTran = new Transaction(
     aliceAddress,               // to address
     400000,                     // value of transfer
     config.minTransactionFee,   // fee
-    "2018-01-01T00:02:45.371Z", // dateCreated
+    currentDateMinus(400),      // dateCreated
     config.faucetPublicKey      // senderPubKey
 );
 alicePendingFaucetTran.sign(config.faucetPrivateKey);
@@ -84,33 +90,22 @@ function insertSampleChainData(chain) {
             throw new Error(result.errorMsg);
     }
 
-    function mineTheNextBlock() {
-        let oldDifficulty = chain.difficulty;
-        chain.difficulty = 0;
-
-        let nextBlock = chain.getMiningJob(minerAddress);
-        let miningHour = ('' + chain.blocks.length).padStart(2, '0');
-        nextBlock.dateCreated = "2018-01-01T00:" + miningHour + ":00.000Z";
-        nextBlock.nonce = 1111111;
-        nextBlock.calculateBlockHash();
-        let result = chain.submitMinedBlock(nextBlock.blockDataHash,
-            nextBlock.dateCreated, nextBlock.nonce, nextBlock.blockHash);
+    function mineTheNextBlock(difficulty) {
+        let result = chain.mineNextBlock(minerAddress, difficulty);
         if (result.errorMsg)
             throw new Error(result.errorMsg);
-
-        chain.difficulty = oldDifficulty;
     }
 
     insertTransaction(chain, aliceFaucetTran);
     insertTransaction(chain, bobFaucetTran);
 
-    mineTheNextBlock();
+    mineTheNextBlock(1);
 
     insertTransaction(chain, aliceToBobTranOK);
     insertTransaction(chain, peterToBobTranZeroBalance);
     insertTransaction(chain, aliceToBobTranNoFunds);
 
-    mineTheNextBlock();
+    mineTheNextBlock(2);
 
     insertTransaction(chain, alicePendingFaucetTran);
 }

@@ -6,17 +6,10 @@ const config = require("./Config");
 
 module.exports = class Blockchain {
     constructor(genesisBlock, startDifficulty) {
-        // Blocks: Block[]
-        this.blocks = [genesisBlock];
-
-        // PendingTransactions: Transaction[]
-        this.pendingTransactions = [];
-
-        // Difficulty: number
-        this.difficulty = startDifficulty;
-
-        // MiningJobs: map(blockDataHash => Block)
-        this.miningJobs = {};
+        this.blocks = [genesisBlock]; // Block[]
+        this.pendingTransactions = []; // Transaction[]
+        this.currentDifficulty = startDifficulty; // integer
+        this.miningJobs = {}; // map(blockDataHash => Block)
     }
 
     calcCumulativeDifficulty() {
@@ -61,12 +54,16 @@ module.exports = class Blockchain {
     }
 
     getAccountBalance(address) {
+        let transactions = this.getTransactionHistory(address);
+        if (transactions.length === 0) {
+            return { errorMsg: "No transactions" }
+        }
+
         let balance = {
             "safeBalance": 0,
             "confirmedBalance": 0,
             "pendingBalance": 0
         };
-        let transactions = this.getTransactionHistory(address);
 
         for (let tran of transactions) {
             let confirmsCount = 0;
@@ -153,9 +150,9 @@ module.exports = class Blockchain {
         return tran;
     }
 
-    addNewBlock(blockInfo) {
-        // TODO: validate the new block and eventually add it to the chain
-    }
+    // addNewBlock(blockInfo) {
+    //     // TODO: validate the new block and eventually add it to the chain
+    // }
 
     // @return map(address -> balance)
     calcAllConfirmedBalances() {
@@ -174,7 +171,7 @@ module.exports = class Blockchain {
     }
 
     getMiningJob(minerAddress) {
-        let nextBlockIndex = this.blocks.length + 1;
+        let nextBlockIndex = this.blocks.length;
 
         // Deep clone all pending transactions & sort them by fee
         let transactions = JSON.parse(JSON.stringify(this.getPendingTransactions()));
@@ -233,7 +230,7 @@ module.exports = class Blockchain {
         let nextBlockCandidate = new Block(
             nextBlockIndex,
             transactions,
-            this.difficulty,
+            this.currentDifficulty,
             prevBlockHash,
             minerAddress
         );
@@ -264,7 +261,7 @@ module.exports = class Blockchain {
     }
 
     extendChain(newBlock) {
-        if (this.blocks.length + 1 !== newBlock.index)
+        if (newBlock.index !== this.blocks.length)
             return { errorMsg: "The submitted block was already mined by someone else" };
 
         let prevBlock = this.blocks[this.blocks.length - 1];
@@ -284,5 +281,26 @@ module.exports = class Blockchain {
             tranHashesToRemove.add(t.transactionDataHash);
         this.pendingTransactions = this.pendingTransactions.filter(
             t => !tranHashesToRemove.has(t.transactionDataHash));
+    }
+
+    mineNextBlock(minerAddress, difficulty) {
+        // Prepare the next block for mining
+        let oldDifficulty = this.currentDifficulty;
+        this.currentDifficulty = difficulty;
+        let nextBlock = this.getMiningJob(minerAddress);
+        this.currentDifficulty = oldDifficulty;
+
+        // Mine the next block
+        nextBlock.dateCreated = (new Date()).toISOString();
+        nextBlock.nonce = 0;
+        do {
+            nextBlock.nonce++;
+            nextBlock.calculateBlockHash();
+        } while (!ValidationUtils.isValidDifficulty(nextBlock.blockHash, difficulty));
+
+        // Submit the mined block
+        let result = this.submitMinedBlock(nextBlock.blockDataHash,
+            nextBlock.dateCreated, nextBlock.nonce, nextBlock.blockHash);
+        return result;
     }
 };
