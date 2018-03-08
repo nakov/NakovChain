@@ -3,7 +3,7 @@ const expect = chai.expect;
 
 describe('Transaction', () => {
     const Transaction = require('../src/Transaction');
-    const Utils = require('../src/Utils');
+    const CryptoUtils = require('../src/CryptoUtils');
 
     describe('calculateDataHash()', () => {
         it('should calculate correct data hash', () => {
@@ -24,8 +24,8 @@ describe('Transaction', () => {
         it('should calculate correct signature', () => {
             let senderPrivKey =
                 "7e4670ae70c98d24f3662c172dc510a085578b9ccc717e6c2f4e547edd960a34";
-            let senderPubKey = Utils.privateKeyToPublicKey(senderPrivKey);
-            let senderAddress = Utils.publicKeyToAddress(senderPubKey);
+            let senderPubKey = CryptoUtils.privateKeyToPublicKey(senderPrivKey);
+            let senderAddress = CryptoUtils.publicKeyToAddress(senderPubKey);
             let tran = new Transaction(
                 senderAddress,                              // fromAddress
                 "f51362b7351ef62253a227a77751ad9b2302f911", // toAddress

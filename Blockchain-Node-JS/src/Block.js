@@ -1,4 +1,4 @@
-const CryptoJS = require("crypto-js");
+const CryptoUtils = require("./CryptoUtils");
 
 module.exports = class Block {
     constructor(index,
@@ -11,36 +11,20 @@ module.exports = class Block {
                 dateCreated,
                 blockHash)
     {
-        // Index: number
-        this.index = index;
-
-        // Transactions: Transaction[]
-        this.transactions = transactions;
-
-        // Difficulty: number
-        this.difficulty = difficulty;
-
-        // PrevBlockHash: hex_number
-        this.prevBlockHash = prevBlockHash;
-
-        // MinedBy: address
-        this.minedBy = minedBy;
-
-        // BlockDataHash: address
-        this.blockDataHash = blockDataHash;
+        this.index = index; // integer
+        this.transactions = transactions; // Transaction[]
+        this.difficulty = difficulty; // integer
+        this.prevBlockHash = prevBlockHash; // hex_number[64]
+        this.minedBy = minedBy; // address (40 hex digits)
+        this.blockDataHash = blockDataHash; // address (40 hex digits)
 
         // Calculate the block data hash if it is missing
         if (this.blockDataHash === undefined)
             this.blockDataHash = this.calculateBlockDataHash();
 
-        // Nonce: number
-        this.nonce = nonce;
-
-        // DateCreated: timestamp
-        this.dateCreated = dateCreated;
-
-        // BlockHash: hex_number
-        this.blockHash = blockHash;
+        this.nonce = nonce; // integer
+        this.dateCreated = dateCreated; // ISO8601_string
+        this.blockHash = blockHash; // hex_number[64]
 
         // Calculate the block hash if it is missing
         if (this.blockHash === undefined)
@@ -51,13 +35,13 @@ module.exports = class Block {
         let blockData = {
             'index': this.index,
             'transactions': this.transactions.map(t => Object({
-                'from': t.fromAddress,
-                'to': t.toAddress,
+                'from': t.from,
+                'to': t.to,
                 'value': t.value,
                 'fee': t.fee,
                 'dateCreated': t.dateCreated,
                 'senderPubKey': t.senderPubKey,
-                'transactionDataHash': t.senderSignature,
+                'transactionDataHash': t.transactionDataHash,
                 'senderSignature': t.senderSignature,
                 'minedInBlockIndex': t.minedInBlockIndex,
                 'transferSuccessful': t.transferSuccessful,
@@ -67,11 +51,11 @@ module.exports = class Block {
             'minedBy': this.minedBy
         };
         let blockDataJSON = JSON.stringify(blockData);
-        this.blockDataHash = CryptoJS.SHA256(blockDataJSON).toString();
+        this.blockDataHash = CryptoUtils.sha256(blockDataJSON);
     }
 
     calculateBlockHash() {
         let data = `${this.blockDataHash}|${this.dateCreated}|${this.nonce}`;
-        this.blockHash = CryptoJS.SHA256(data).toString();
+        this.blockHash = CryptoUtils.sha256(data);
     }
 };

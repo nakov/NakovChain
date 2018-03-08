@@ -55,7 +55,8 @@ app.get('/info', (req, res) => {
 
 app.get('/debug', (req, res) => {
     const config = require('./Config');
-    res.json({node, config});
+    const confirmedBalances = node.chain.calcAllConfirmedBalances();
+    res.json({node, config, confirmedBalances});
 });
 
 app.get('/blocks', (req, res) => {

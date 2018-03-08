@@ -1,10 +1,10 @@
 const Block = require("./Block");
 const Transaction = require("./Transaction");
-const Utils = require("./Utils");
+const CryptoUtils = require("./CryptoUtils");
 
-const faucetPrivateKey = 'd816f0c72ecc7dc1f0a8d5294676098ea0d5ee826f5c13c7026952ff8ea24fe4';
-const faucetPublicKey = Utils.privateKeyToPublicKey(faucetPrivateKey);
-const faucetAddress = Utils.publicKeyToAddress(faucetPublicKey);
+const faucetPrivateKey = '838ff8634c41ba62467cc874ca156830ba55efe3e41ceeeeae5f3e77238f4eef';
+const faucetPublicKey = CryptoUtils.privateKeyToPublicKey(faucetPrivateKey);
+const faucetAddress = CryptoUtils.publicKeyToAddress(faucetPublicKey);
 
 const nullAddress = "0000000000000000000000000000000000000000";
 const nullPubKey = "00000000000000000000000000000000000000000000000000000000000000000";
@@ -53,5 +53,6 @@ module.exports = {
     maxTransactionFee: 1000000,
     blockReward: 5000000,
     maxTransferValue: 10000000000000,
-    genesisBlock
+    safeConfirmCount: 3,
+    genesisBlock,
 };

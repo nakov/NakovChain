@@ -1,6 +1,7 @@
-const Transaction = require("./Transaction");
 const Block = require("./Block");
-const Utils = require("./Utils");
+const Transaction = require("./Transaction");
+const ValidationUtils = require("./ValidationUtils");
+const CryptoUtils = require("./CryptoUtils");
 const config = require("./Config");
 
 module.exports = class Blockchain {
@@ -55,20 +56,48 @@ module.exports = class Blockchain {
     getTransactionHistory(address) {
         let transactions = this.getAllTransactions();
         let transactionsByAddress = transactions.filter(
-            t => t.fromAddress === address || t.toAddress === address);
+            t => t.from === address || t.to === address);
         return transactionsByAddress;
     }
 
     getAccountBalance(address) {
         let balance = {
-            "confirmedBalance": {"confirmations": undefined, "balance": 0},
-            "lastMinedBalance": {"confirmations": 1, "balance": 0},
-            "pendingBalance": {"confirmations": 0, "balance": 0}
+            "safeBalance": 0,
+            "confirmedBalance": 0,
+            "pendingBalance": 0
         };
         let transactions = this.getTransactionHistory(address);
 
         for (let tran of transactions) {
-            // TODO
+            let confirmsCount = 0;
+            if (typeof(tran.minedInBlockIndex) === 'number') {
+                confirmsCount = this.blocks.length - tran.minedInBlockIndex + 1;
+            }
+            if (tran.from === address) {
+                // Funds spent -> subtract value and fee
+                balance.pendingBalance -= tran.fee;
+                if (confirmsCount === 0 || tran.transferSuccessful)
+                    balance.pendingBalance -= tran.value;
+                if (confirmsCount >= 1) {
+                    balance.confirmedBalance -= tran.fee;
+                    if (tran.transferSuccessful)
+                        balance.confirmedBalance -= tran.value;
+                }
+                if (confirmsCount >= config.safeConfirmCount) {
+                    balance.safeBalance -= tran.fee;
+                    if (tran.transferSuccessful)
+                        balance.safeBalance -= tran.value;
+                }
+            }
+            if (tran.to === address) {
+                // Funds received --> add value and fee
+                if (confirmsCount === 0 || tran.transferSuccessful)
+                    balance.pendingBalance += tran.value;
+                if (confirmsCount >= 1 && tran.transferSuccessful)
+                    balance.confirmedBalance += tran.value;
+                if (confirmsCount >= config.safeConfirmCount && tran.transferSuccessful)
+                    balance.safeBalance += tran.value;
+            }
         }
 
         return balance;
@@ -81,34 +110,35 @@ module.exports = class Blockchain {
         return matchingTransactions[0];
     }
 
-    addNewTransaction(transactionData) {
-        // TODO: validate the transaction & add to pending transactions
-        if (! Utils.isValidAddress(transactionData.from))
-            return {errorMsg: "Invalid sender address: " + transactionData.from};
-        if (! Utils.isValidAddress(transactionData.to))
-            return {errorMsg: "Invalid recipient address: " + transactionData.to};
-        if (! Utils.isValidPublicKey(transactionData.senderPubKey))
-            return {errorMsg: "Invalid public key: " + transactionData.senderPubKey};
-        if (Utils.publicKeyToAddress(transactionData.senderPubKey) !== tran.from)
+    addNewTransaction(tranData) {
+        // Validate the transaction & add it to the pending transactions
+        if (! ValidationUtils.isValidAddress(tranData.from))
+            return {errorMsg: "Invalid sender address: " + tranData.from};
+        if (! ValidationUtils.isValidAddress(tranData.to))
+            return {errorMsg: "Invalid recipient address: " + tranData.to};
+        if (! ValidationUtils.isValidPublicKey(tranData.senderPubKey))
+            return {errorMsg: "Invalid public key: " + tranData.senderPubKey};
+        let senderAddr = CryptoUtils.publicKeyToAddress(tranData.senderPubKey);
+        if (senderAddr !== tranData.from)
             return {errorMsg: "The public key should match the sender address"};
-        if (! Utils.isValidTransferValue(transactionData.value))
-            return {errorMsg: "Invalid transfer value: " + transactionData.value};
-        if (! Utils.isValidFee(transactionData.fee))
-            return {errorMsg: "Invalid transaction fee: " + transactionData.fee};
-        if (! Utils.isValidDate(transactionData.dateCreated))
-            return {errorMsg: "Invalid date: " + transactionData.dateCreated};
-        if (! Utils.isValidSignatureFormat(transactionData.senderSignature))
+        if (! ValidationUtils.isValidTransferValue(tranData.value))
+            return {errorMsg: "Invalid transfer value: " + tranData.value};
+        if (! ValidationUtils.isValidFee(tranData.fee))
+            return {errorMsg: "Invalid transaction fee: " + tranData.fee};
+        if (! ValidationUtils.isValidDate(tranData.dateCreated))
+            return {errorMsg: "Invalid date: " + tranData.dateCreated};
+        if (! ValidationUtils.isValidSignatureFormat(tranData.senderSignature))
             return {errorMsg: 'Invalid or missing signature. Expected signature format: ["hexnum", "hexnum"]'};
 
         let tran = new Transaction(
-            transactionData.from,
-            transactionData.to,
-            transactionData.value,
-            transactionData.fee,
-            transactionData.dateCreated,
-            transactionData.senderPubKey,
+            tranData.from,
+            tranData.to,
+            tranData.value,
+            tranData.fee,
+            tranData.dateCreated,
+            tranData.senderPubKey,
             undefined, // the transactionDataHash is auto-calculated
-            transactionData.senderSignature
+            tranData.senderSignature
         );
 
         // Check for duplicated transactions (to avoid "replay attack")
@@ -116,7 +146,7 @@ module.exports = class Blockchain {
             return {errorMsg: "Duplicated transaction: " + tran.transactionDataHash};
 
         if (! tran.verifySignature())
-            return {errorMsg: "Invalid signature: " + transactionData.senderSignature};
+            return {errorMsg: "Invalid signature: " + tranData.senderSignature};
 
         this.pendingTransactions.push(tran);
 
@@ -132,13 +162,12 @@ module.exports = class Blockchain {
         let transactions = this.getConfirmedTransactions();
         let balances = {};
         for (let tran of transactions) {
-            balances[tran.fromAddress] = 0;
-            balances[tran.toAddress] = 0;
-        }
-        for (let tran of transactions) {
+            balances[tran.from] = balances[tran.from] || 0;
+            balances[tran.to] = balances[tran.to] || 0;
+            balances[tran.from] -= tran.fee;
             if (tran.transferSuccessful) {
-                balances[tran.fromAddress] -= tran.value;
-                balances[tran.toAddress] += tran.value;
+                balances[tran.from] -= tran.value;
+                balances[tran.to] += tran.value;
             }
         }
         return balances;
@@ -153,10 +182,10 @@ module.exports = class Blockchain {
 
         // Insert the coinbase transaction, holding the block reward + tx fees
         let coinbaseTransaction = new Transaction(
-            config.nullAddress,       // fromAddress
-            minerAddress,             // toAddress
-            config.blockReward,       // transferValue
-            0,                        // fee
+            config.nullAddress,       // from (address)
+            minerAddress,             // to (address)
+            config.blockReward,       // value (of transfer)
+            0,                        // fee (for mining)
             new Date().toISOString(), // dateCreated
             config.nullPubKey,        // senderPubKey
             undefined,                // transactionDataHash
@@ -164,26 +193,40 @@ module.exports = class Blockchain {
             nextBlockIndex,           // minedInBlockIndex
             true
         );
-        transactions.forEach(t => coinbaseTransaction.value += t.fee);
-        coinbaseTransaction.calculateDataHash();
 
-        // Execute all pending transactions
-        // (transfer the requested values if possible)
+        // Execute all pending transactions (after paying their fees)
+        // Transfer the requested values if the balance is sufficient
         let balances = this.calcAllConfirmedBalances();
         for (let tran of transactions) {
-            if (balances[tran.fromAddress] === undefined)
-                balances[tran.fromAddress] = 0;
-            if (balances[tran.toAddress] === undefined)
-                balances[tran.toAddress] = 0;
-            if (balances[tran.fromAddress] >= tran.value + tran.fee) {
-                balances[tran.fromAddress] -= tran.value + tran.fee;
-                balances[tran.toAddress] += tran.value;
-                tran.transferSuccessful = true;
-            } else {
-                tran.transferSuccessful = false;
+            balances[tran.from] = balances[tran.from] || 0;
+            balances[tran.to] = balances[tran.to] || 0;
+            if (balances[tran.from] >= tran.fee) {
+                tran.minedInBlockIndex = nextBlockIndex;
+
+                // The transaction sender pays the processing fee
+                balances[tran.from] -= tran.fee;
+                coinbaseTransaction.value += tran.fee;
+
+                // Transfer the requested value: sender -> recipient
+                if (balances[tran.from] >= tran.value) {
+                    balances[tran.from] -= tran.value;
+                    balances[tran.to] += tran.value;
+                    tran.transferSuccessful = true;
+                } else {
+                    tran.transferSuccessful = false;
+                }
             }
-            tran.minedInBlockIndex = nextBlockIndex;
+            else {
+                // The transaction cannot be mined due to insufficient
+                // balance to pay the transaction fee -> drop it
+                this.removePendingTransactions([tran]);
+                transactions = transactions.filter(t => t !== tran);
+            }
         }
+
+        // Insert the coinbase transaction at the start
+        coinbaseTransaction.calculateDataHash();
+        transactions.unshift(coinbaseTransaction);
 
         // Prepare the next block candidate (block template)
         let prevBlockHash = this.blocks[this.blocks.length-1].blockHash;
@@ -213,15 +256,33 @@ module.exports = class Blockchain {
         // Validate the block hash + the proof of work
         if (newBlock.blockHash !== blockHash)
             return { errorMsg: "Block hash is incorrectly calculated" };
-        if (! Utils.validateDifficulty(newBlock.blockHash, newBlock.difficulty))
+        if (! ValidationUtils.isValidDifficulty(
+                newBlock.blockHash, newBlock.difficulty))
             return { errorMsg: "The calculated block hash does not match the block difficulty" };
 
-        if (this.blocks.length + 1 !== block.index)
+        return this.extendChain(newBlock);
+    }
+
+    extendChain(newBlock) {
+        if (this.blocks.length + 1 !== newBlock.index)
             return { errorMsg: "The submitted block was already mined by someone else" };
+
+        let prevBlock = this.blocks[this.blocks.length - 1];
+        if (prevBlock.blockHash !== newBlock.prevBlockHash)
+            return { errorMsg: "Incorrect prevBlockHash" };
 
         // The block is correct --> accept it
         this.blocks.push(newBlock);
         this.miningJobs = {}; // Invalidate all mining jobs
+        this.removePendingTransactions(newBlock.transactions);
         return newBlock;
+    }
+
+    removePendingTransactions(transactionsToRemove) {
+        let tranHashesToRemove = new Set();
+        for (let t of transactionsToRemove)
+            tranHashesToRemove.add(t.transactionDataHash);
+        this.pendingTransactions = this.pendingTransactions.filter(
+            t => !tranHashesToRemove.has(t.transactionDataHash));
     }
 };

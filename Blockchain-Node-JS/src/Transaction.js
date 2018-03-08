@@ -1,10 +1,9 @@
-const CryptoJS = require("crypto-js");
-const Utils = require("./Utils");
+const CryptoUtils = require("./CryptoUtils");
 
 module.exports = class Transaction {
-    constructor(fromAddress,
-                toAddress,
-                transferValue,
+    constructor(from,
+                to,
+                value,
                 fee,
                 dateCreated,
                 senderPubKey,
@@ -13,61 +12,43 @@ module.exports = class Transaction {
                 minedInBlockIndex,
                 transferSuccessful)
     {
-        // From: address
-        this.fromAddress = fromAddress;
-
-        // To: address
-        this.toAddress = toAddress;
-
-        // Value: number
-        this.value = transferValue;
-
-        // Fee: number
-        this.fee = fee;
-
-        // DateCreated: timestamp
-        this.dateCreated = dateCreated;
-
-        // SenderPubKey: hex_number
-        this.senderPubKey = senderPubKey;
-
-        // TransactionDataHash: hex_number
-        this.transactionDataHash = transactionDataHash;
+        this.from = from; // Sender address: 40 hex digits
+        this.to = to; // Recipient address: 40 hex digits
+        this.value = value; // Transfer value: integer
+        this.fee = fee; // Mining fee: integer
+        this.dateCreated = dateCreated;   // ISO-8601 string
+        this.senderPubKey = senderPubKey; // 65 hex digits
+        this.transactionDataHash = transactionDataHash; // 64 hex digits
 
         // Calculate the transaction data hash if it is missing
         if (this.transactionDataHash === undefined)
             this.calculateDataHash();
 
-        // SenderSignature: hex_number[2]
-        this.senderSignature = senderSignature;
-
-        // MinedInBlockIndex: number
-        this.minedInBlockIndex = minedInBlockIndex;
-
-        // TransferSuccessful: bool
-        this.transferSuccessful = transferSuccessful;
+        this.senderSignature = senderSignature; // hex_number[2][64]
+        this.minedInBlockIndex = minedInBlockIndex; // integer
+        this.transferSuccessful = transferSuccessful; // bool
     }
 
     calculateDataHash() {
         let tranData = {
-            'from': this.fromAddress,
-            'to': this.toAddress,
+            'from': this.from,
+            'to': this.to,
             'senderPubKey': this.senderPubKey,
             'value': this.value,
             'fee': this.fee,
             'dateCreated': this.dateCreated
         };
         let tranDataJSON = JSON.stringify(tranData);
-        this.transactionDataHash = CryptoJS.SHA256(tranDataJSON).toString();
+        this.transactionDataHash = CryptoUtils.sha256(tranDataJSON);
     }
 
     sign(privateKey) {
-        this.senderSignature = Utils.signData(
+        this.senderSignature = CryptoUtils.signData(
             this.transactionDataHash, privateKey);
     }
 
     verifySignature() {
-        return Utils.verifySignature(this.transactionDataHash,
+        return CryptoUtils.verifySignature(this.transactionDataHash,
             this.senderPubKey, this.senderSignature);
     }
 };
