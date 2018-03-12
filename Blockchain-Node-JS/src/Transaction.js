@@ -6,6 +6,7 @@ module.exports = class Transaction {
                 value,
                 fee,
                 dateCreated,
+                data,
                 senderPubKey,
                 transactionDataHash,
                 senderSignature,
@@ -17,6 +18,7 @@ module.exports = class Transaction {
         this.value = value; // Transfer value: integer
         this.fee = fee; // Mining fee: integer
         this.dateCreated = dateCreated;   // ISO-8601 string
+        this.data = data;  // Optional data (e.g. payload or comments): string
         this.senderPubKey = senderPubKey; // 65 hex digits
         this.transactionDataHash = transactionDataHash; // 64 hex digits
 
@@ -33,10 +35,11 @@ module.exports = class Transaction {
         let tranData = {
             'from': this.from,
             'to': this.to,
-            'senderPubKey': this.senderPubKey,
             'value': this.value,
             'fee': this.fee,
-            'dateCreated': this.dateCreated
+            'dateCreated': this.dateCreated,
+            'data': this.data,
+            'senderPubKey': this.senderPubKey
         };
         let tranDataJSON = JSON.stringify(tranData);
         this.transactionDataHash = CryptoUtils.sha256(tranDataJSON);

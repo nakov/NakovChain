@@ -29,6 +29,8 @@ const cors = require('cors');
 app.use(cors());
 
 const HttpStatus = require('http-status-codes');
+const HttpRequest = require("request");
+
 
 app.get('/', (req, res) => {
     const listExpressEndpoints = require('express-list-endpoints');
@@ -46,7 +48,7 @@ app.get('/info', (req, res) => {
         "nodeUrl": node.selfUrl,
         "peers": node.peers.length,
         "currentDifficulty": node.chain.currentDifficulty,
-        "blocks": node.chain.blocks.length,
+        "blocksCount": node.chain.blocks.length,
         "cumulativeDifficulty": node.chain.calcCumulativeDifficulty(),
         "confirmedTransactions": node.chain.getConfirmedTransactions().length,
         "pendingTransactions": node.chain.pendingTransactions.length,
@@ -136,10 +138,34 @@ app.get('/peers', (req, res) => {
 
 app.post('/peers', (req, res) => {
     let peerUrl = req.body.peerUrl;
-    if (node.registerNewPeer(peerUrl))
-        res.json({ message: "Added peer: " + peerUrl});
-    else
-        res.status(409).json({ errorMsg: "Cannot add peer: " + peerUrl});
+    if (peerUrl === undefined)
+        return res.status(HttpStatus.BAD_REQUEST).json(
+            {errorMsg: "Missing 'peerUrl' in the request body"});
+
+    if (peerUrl.endsWith('/'))
+        peerUrl = peerUrl.substr(0, peerUrl.length-1);
+    if (peerUrl === node.selfUrl)
+        return res.status(HttpStatus.BAD_REQUEST).json(
+            {errorMsg: "Cannot connect to self."});
+
+    if (node.peers.includes(peerUrl))
+        return res.status(HttpStatus.CONFLICT).json(
+            {errorMsg: "Already connected to: " + peerUrl});
+
+    HttpRequest.post(
+        peerUrl + "/peers",
+        { json: { peerUrl: node.selfUrl } },
+        function (error, response, body) {
+            if (!error) {
+                node.peers.push(peerUrl);
+                node.syncChain(peerUrl);
+                res.json({message: "Connected to peer: " + peerUrl});
+            }
+            else
+                res.status(HttpStatus.BAD_REQUEST).json(
+                    {errorMsg: "Cannot connect to peer: " + peerUrl});
+        }
+    );
 });
 
 app.get('/mining/get-mining-job/:address', (req, res) => {
@@ -170,6 +196,22 @@ app.post('/mining/submit-mined-block', (req, res) => {
         // TODO: notify all peers
     }
 });
+
+node.syncChain = async function(peerUrl) {
+    try {
+        let peerChainInfо = await HttpRequest.get(peerUrl + "/info");
+        let thisChainLen = node.chain.blocks.length;
+        let peerChainLen = peerChainInfо.blocksCount;
+        let thisChainDiff = node.chain.calcCumulativeDifficulty();
+        let peerChainDiff = peerChainInfо.cumulativeDifficulty;
+        if (peerChainLen > thisChainLen && peerChainDiff > thisChainDiff) {
+            let blocks = await HttpRequest.get(peerUrl + "/blocks");
+            node.blockchain.processLongerChain(blocks);
+        }
+    } catch (err) {
+        console.log("Error loading the chain: " + err);
+    }
+};
 
 node.startServer = function() {
     server = app.listen(node.port, () => {

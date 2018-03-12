@@ -15,11 +15,12 @@ const nullSignature = [
 
 const genesisDate = "2018-01-01T00:00:00.000Z";
 const genesisFaucetTransaction = new Transaction(
-    nullAddress,   // fromAddress
-    faucetAddress, // toAddress
-    1000000000000, // transactionValue
-    0,             // fee
+    nullAddress,   // from address
+    faucetAddress, // to Address
+    1000000000000, // value of transfer
+    0,             // fee for mining
     genesisDate,   // dateCreated
+    "genesis tx",  // data (payload)
     nullPubKey,    // senderPubKey
     undefined,     // transactionDataHash
     nullSignature, // senderSignature

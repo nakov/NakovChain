@@ -40,6 +40,7 @@ module.exports = class Block {
                 'value': t.value,
                 'fee': t.fee,
                 'dateCreated': t.dateCreated,
+                'data': t.data,
                 'senderPubKey': t.senderPubKey,
                 'transactionDataHash': t.transactionDataHash,
                 'senderSignature': t.senderSignature,

@@ -50,6 +50,8 @@ module.exports = class Blockchain {
         let transactions = this.getAllTransactions();
         let transactionsByAddress = transactions.filter(
             t => t.from === address || t.to === address);
+        transactionsByAddress.sort((a, b) =>
+            a.dateCreated.localeCompare(b.dateCreated));
         return transactionsByAddress;
     }
 
@@ -133,6 +135,7 @@ module.exports = class Blockchain {
             tranData.value,
             tranData.fee,
             tranData.dateCreated,
+            tranData.data,
             tranData.senderPubKey,
             undefined, // the transactionDataHash is auto-calculated
             tranData.senderSignature
@@ -184,6 +187,7 @@ module.exports = class Blockchain {
             config.blockReward,       // value (of transfer)
             0,                        // fee (for mining)
             new Date().toISOString(), // dateCreated
+            "coinbase tx",            // data (payload / comments)
             config.nullPubKey,        // senderPubKey
             undefined,                // transactionDataHash
             config.nullSignature,     // senderSignature
@@ -273,6 +277,11 @@ module.exports = class Blockchain {
         this.miningJobs = {}; // Invalidate all mining jobs
         this.removePendingTransactions(newBlock.transactions);
         return newBlock;
+    }
+
+    processLongerChain(blocks) {
+        // TODO: validate the chain (it should be longer, hold valid blocks, valid transactions, etc.
+        this.blocks = blocks;
     }
 
     removePendingTransactions(transactionsToRemove) {
