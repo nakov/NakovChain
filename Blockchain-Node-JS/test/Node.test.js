@@ -30,9 +30,9 @@ describe('Node', () => {
             expect(res).to.have.status(200);
             expect(res).to.be.json;
             expect(res.body).to.have.property('nodeUrl');
-            expect(res.body).to.have.property('blocks');
+            expect(res.body).to.have.property('blocksCount');
             expect(res.body.nodeUrl).to.be.equal('http://localhost:5555');
-            expect(res.body.blocks).to.be.equal(1);
+            expect(res.body.blocksCount).to.be.equal(1);
             req.app.close();
         });
     });

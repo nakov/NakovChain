@@ -16,7 +16,7 @@ describe('Transaction', () => {
                 "f73df83ca0f807528a83bfacf2a935f8c7a37a5b5ce06e393707b798804c71b01",    // senderPubKey
             );
             tran.calculateDataHash();
-            expect(tran.transactionDataHash).to.be.equal("0e45c340a7e63c987d2f331ca656768f723f8c7bf902de91ac9b34dd837b6f5e");
+            expect(tran.transactionDataHash).to.be.equal("df3afcd0dc6adc26af62465b6ce5921e30c175d27910f47d584bdfa5c8705726");
         });
     });
 
@@ -37,9 +37,9 @@ describe('Transaction', () => {
             tran.sign(senderPrivKey);
             expect(tran.senderSignature.length).to.be.equal(2);
             expect(tran.senderSignature[0]).to.be.equal(
-                "1aaf55dcb11060749b391d547f37b4727222dcb90e793d9bdb945c64fe4968b0");
+                "78d57e5d94fc2986dc71aa8350b079ab1cdf076eb700b1db1801ddeafd856e00");
             expect(tran.senderSignature[1]).to.be.equal(
-                "87250a2841f7a56910b0f7ebdd067589632ccf19d352c15f16cfdba9b7687960"
+                "fb18dc9aed571cd84cecb90fb6cc4714bb2c9497abfa442625466a581450a159"
             );
         });
     });
