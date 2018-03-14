@@ -1,8 +1,8 @@
 const chai = require('chai');
 const expect = chai.expect;
 
-describe('miner', () => {
-    const miner = require('../src/miner');
+describe('Miner', () => {
+    const miner = require('../src/Miner');
 
     describe('mine()', () => {
         it('should mine correct proof-of-work hash', async () => {
@@ -13,6 +13,11 @@ describe('miner', () => {
             };
             await miner.mine(block);
             expect(block).to.have.property('nonce');
+            expect(block).to.have.property('dateCreated');
+            expect(block).to.have.property('blockHash');
+            let isValidDifficulty = miner.isValidDifficulty(
+                block.blockHash, block.difficulty);
+            expect(isValidDifficulty).to.be.true;
         });
     });
 });

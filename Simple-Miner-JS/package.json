@@ -2,9 +2,9 @@
   "name": "nakov-miner",
   "version": "1.0.0",
   "description": "Simple Miner for the Educational Blockchain Network",
-  "main": "miner.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/miner.js",
+    "start": "node src/index.js",
     "test": "./node_modules/.bin/mocha"
   },
   "author": "Svetlin Nakov",
