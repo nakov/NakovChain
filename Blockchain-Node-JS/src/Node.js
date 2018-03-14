@@ -1,4 +1,5 @@
 const Blockchain = require("./Blockchain");
+const logger = require("js-logging").colorConsole();
 
 let node = {
     host: '',    // the external host / IP address to connect to this node
@@ -109,10 +110,9 @@ app.get('/address/:address/transactions', (req, res) => {
 app.get('/address/:address/balance', (req, res) => {
     let address = req.params.address;
     let balance = node.chain.getAccountBalance(address);
-    if (balance.confirmedBalance)
-        res.json(balance);
-    else
-        res.status(HttpStatus.NOT_FOUND).json(balance);
+    if (balance.errorMsg)
+        res.status(HttpStatus.NOT_FOUND);
+    res.json(balance);
 });
 
 app.post('/transactions/send', (req, res) => {
@@ -152,18 +152,25 @@ app.post('/peers', (req, res) => {
         return res.status(HttpStatus.CONFLICT).json(
             {errorMsg: "Already connected to: " + peerUrl});
 
+    // Add the peer to the internal peer list, then attempt to connect to it
+    node.peers.push(peerUrl);
+
+    logger.debug("Trying to connect to peer: " + peerUrl);
     HttpRequest.post(
         peerUrl + "/peers",
         { json: { peerUrl: node.selfUrl } },
         function (error, response, body) {
             if (!error) {
-                node.peers.push(peerUrl);
+                logger.debug("Connected to peer: " + peerUrl);
                 node.syncChain(peerUrl);
                 res.json({message: "Connected to peer: " + peerUrl});
             }
-            else
+            else {
+                // Cannot connect -> remove the recently peer
+                node.peers = node.peers.filter(p => p !== peerUrl);
                 res.status(HttpStatus.BAD_REQUEST).json(
                     {errorMsg: "Cannot connect to peer: " + peerUrl});
+            }
         }
     );
 });
@@ -174,6 +181,7 @@ app.get('/mining/get-mining-job/:address', (req, res) => {
     res.json({
         index: blockCandidate.index,
         transactionsIncluded: blockCandidate.transactions.length,
+        difficulty: blockCandidate.difficulty,
         expectedReward: blockCandidate.transactions[0].value,
         rewardAddress: blockCandidate.transactions[0].to,
         blockDataHash: blockCandidate.blockDataHash,
@@ -188,7 +196,7 @@ app.post('/mining/submit-mined-block', (req, res) => {
     let result = node.chain.submitMinedBlock(
         blockDataHash, dateCreated, nonce, blockHash);
     if (result.errorMsg)
-        res.status(HttpStatus.BAD_REQUEST);
+        res.status(HttpStatus.BAD_REQUEST).json(result);
     else {
         res.json({"message":
             `Block accepted, reward paid: ${result.transactions[0].value} microcoins`
@@ -206,16 +214,17 @@ node.syncChain = async function(peerUrl) {
         let peerChainDiff = peerChainInfо.cumulativeDifficulty;
         if (peerChainLen > thisChainLen && peerChainDiff > thisChainDiff) {
             let blocks = await HttpRequest.get(peerUrl + "/blocks");
+            logger.debug(`Chain syncronization started. Peer: ${peerUrl}. Expected chain length = ${peerChainLen}, expected cummulative difficulty = ${peerChainDiff}.`);
             node.blockchain.processLongerChain(blocks);
         }
     } catch (err) {
-        console.log("Error loading the chain: " + err);
+        logger.error("Error loading the chain: " + err);
     }
 };
 
 node.startServer = function() {
     server = app.listen(node.port, () => {
-        console.log(`Server started at ${node.selfUrl}`);
+        logger.info(`Server started at ${node.selfUrl}`);
     });
     return server;
 };

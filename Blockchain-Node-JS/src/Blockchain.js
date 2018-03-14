@@ -3,6 +3,7 @@ const Transaction = require("./Transaction");
 const ValidationUtils = require("./ValidationUtils");
 const CryptoUtils = require("./CryptoUtils");
 const config = require("./Config");
+const logger = require("js-logging").colorConsole();
 
 module.exports = class Blockchain {
     constructor(genesisBlock, startDifficulty) {
@@ -56,16 +57,17 @@ module.exports = class Blockchain {
     }
 
     getAccountBalance(address) {
-        let transactions = this.getTransactionHistory(address);
-        if (transactions.length === 0) {
-            return { errorMsg: "No transactions" }
-        }
-
         let balance = {
             "safeBalance": 0,
             "confirmedBalance": 0,
             "pendingBalance": 0
         };
+
+        let transactions = this.getTransactionHistory(address);
+        if (transactions.length === 0) {
+            balance.errorMsg = "No transactions";
+            return balance;
+        }
 
         for (let tran of transactions) {
             let confirmsCount = 0;
@@ -149,6 +151,7 @@ module.exports = class Blockchain {
             return {errorMsg: "Invalid signature: " + tranData.senderSignature};
 
         this.pendingTransactions.push(tran);
+        logger.debug("Added pending transaction: " + JSON.stringify(tran));
 
         return tran;
     }
@@ -261,7 +264,11 @@ module.exports = class Blockchain {
                 newBlock.blockHash, newBlock.difficulty))
             return { errorMsg: "The calculated block hash does not match the block difficulty" };
 
-        return this.extendChain(newBlock);
+        newBlock = this.extendChain(newBlock);
+
+        if (!newBlock.errorMsg)
+            logger.debug("Mined a new block: " + JSON.stringify(newBlock));
+        return newBlock;
     }
 
     extendChain(newBlock) {
@@ -282,6 +289,7 @@ module.exports = class Blockchain {
     processLongerChain(blocks) {
         // TODO: validate the chain (it should be longer, hold valid blocks, valid transactions, etc.
         this.blocks = blocks;
+        logger.debug("Chain synchronization successful");
     }
 
     removePendingTransactions(transactionsToRemove) {
