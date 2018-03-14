@@ -287,9 +287,10 @@ module.exports = class Blockchain {
     }
 
     processLongerChain(blocks) {
-        // TODO: validate the chain (it should be longer, hold valid blocks, valid transactions, etc.
+        // TODO: validate the chain (it should be longer, should hold valid blocks, each block should hold valid transactions, etc.
         this.blocks = blocks;
-        logger.debug("Chain synchronization successful");
+        this.removePendingTransactions(this.getAllTransactions());
+        logger.info("Chain sync successful. Block count = " + blocks.length);
     }
 
     removePendingTransactions(transactionsToRemove) {

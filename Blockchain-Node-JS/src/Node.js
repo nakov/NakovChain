@@ -2,10 +2,11 @@ const Blockchain = require("./Blockchain");
 const logger = require("js-logging").colorConsole();
 
 let node = {
+    nodeId: '',  // the nodeId uniquely identifies the
     host: '',    // the external host / IP address to connect to this node
     port: 0,     // listening TCP port number
     selfUrl: '', // the external base URL of the REST endpoints
-    peers: [],   // a list of URLs of the peers, directly connected to this node
+    peers: {},   // a map(nodeId --> url) of the peers, connected to this node
     chain: new Blockchain() // the blockchain (blocks, transactions, ...)
 };
 
@@ -14,7 +15,10 @@ node.init = function(serverHost, serverPort, blockchain) {
     node.port = serverPort;
     node.selfUrl = `http://${serverHost}:${serverPort}`;
     node.chain = blockchain;
-    node.peers = [];
+    node.peers = {};
+    node.nodeId = (new Date()).getTime().toString(16) +
+        Math.random().toString(16).substring(2);
+    node.chainId = node.chain.blocks[0].blockHash;
 };
 
 // Create the Express app
@@ -30,8 +34,7 @@ const cors = require('cors');
 app.use(cors());
 
 const HttpStatus = require('http-status-codes');
-const HttpRequest = require("request");
-
+const axios = require("axios");
 
 app.get('/', (req, res) => {
     const listExpressEndpoints = require('express-list-endpoints');
@@ -45,7 +48,9 @@ app.get('/', (req, res) => {
 
 app.get('/info', (req, res) => {
     res.json({
-        "about": "NakovChain/0.1-js",
+        "about": "NakovChain/0.9-js",
+        "nodeId": node.nodeId,
+        "chainId": node.chainId,
         "nodeUrl": node.selfUrl,
         "peers": node.peers.length,
         "currentDifficulty": node.chain.currentDifficulty,
@@ -127,52 +132,40 @@ app.post('/transactions/send', (req, res) => {
         res.status(HttpStatus.BAD_REQUEST).json(sendResult);
 });
 
-app.post('/blocks/notify', (req, res) => {
-    node.notifyAboutNewBlock(req.body);
-    res.json({ message: "Thank you for the notification." });
-});
-
 app.get('/peers', (req, res) => {
     res.json(node.peers);
 });
 
-app.post('/peers', (req, res) => {
+app.post('/peers/connect', (req, res) => {
     let peerUrl = req.body.peerUrl;
     if (peerUrl === undefined)
-        return res.status(HttpStatus.BAD_REQUEST).json(
-            {errorMsg: "Missing 'peerUrl' in the request body"});
-
-    if (peerUrl.endsWith('/'))
-        peerUrl = peerUrl.substr(0, peerUrl.length-1);
-    if (peerUrl === node.selfUrl)
-        return res.status(HttpStatus.BAD_REQUEST).json(
-            {errorMsg: "Cannot connect to self."});
-
-    if (node.peers.includes(peerUrl))
-        return res.status(HttpStatus.CONFLICT).json(
-            {errorMsg: "Already connected to: " + peerUrl});
-
-    // Add the peer to the internal peer list, then attempt to connect to it
-    node.peers.push(peerUrl);
+        return res.status(HttpStatus.BAD_REQUEST)
+            .json({errorMsg: "Missing 'peerUrl' in the request body"});
 
     logger.debug("Trying to connect to peer: " + peerUrl);
-    HttpRequest.post(
-        peerUrl + "/peers",
-        { json: { peerUrl: node.selfUrl } },
-        function (error, response, body) {
-            if (!error) {
-                logger.debug("Connected to peer: " + peerUrl);
-                node.syncChain(peerUrl);
-                res.json({message: "Connected to peer: " + peerUrl});
+    axios.get(peerUrl + "/info")
+        .then(function(result) {
+            if (node.peers[result.data.nodeId]) {
+                logger.debug("Error: already connected to peer: " + peerUrl);
+                res.status(HttpStatus.CONFLICT)
+                    .json({errorMsg: "Already connected to peer: " + peerUrl});
             }
             else {
-                // Cannot connect -> remove the recently peer
-                node.peers = node.peers.filter(p => p !== peerUrl);
-                res.status(HttpStatus.BAD_REQUEST).json(
-                    {errorMsg: "Cannot connect to peer: " + peerUrl});
+                node.peers[result.data.nodeId] = peerUrl;
+                logger.debug("Successfully connected to peer: " + peerUrl);
+                node.syncChainFromPeerInfo(result.data);
+                res.json({message: "Connected to peer: " + peerUrl});
+
+                // Try to connect back the remote peer to self
+                axios.post(peerUrl + "/peers/connect", {peerUrl: node.selfUrl})
+                    .then(function(){}).catch(function(){})
             }
-        }
-    );
+        })
+        .catch(function(error) {
+            logger.debug(`Error: connecting to peer: ${peerUrl} failed.`);
+            res.status(HttpStatus.BAD_REQUEST).json(
+                {errorMsg: "Cannot connect to peer: " + peerUrl});
+        });
 });
 
 app.get('/mining/get-mining-job/:address', (req, res) => {
@@ -201,21 +194,39 @@ app.post('/mining/submit-mined-block', (req, res) => {
         res.json({"message":
             `Block accepted, reward paid: ${result.transactions[0].value} microcoins`
         });
-        // TODO: notify all peers
+        node.notifyPeersAboutNewBlock();
     }
 });
 
-node.syncChain = async function(peerUrl) {
+app.post('/blocks/notify-new-block', (req, res) => {
+    node.syncChainFromPeerInfo(req.body);
+    res.json({ message: "Thank you for the notification." });
+});
+
+node.notifyPeersAboutNewBlock = async function() {
+    let notification = {
+        blocksCount: node.chain.blocks.length,
+        cumulativeDifficulty: node.chain.calcCumulativeDifficulty(),
+        nodeUrl: node.selfUrl
+    };
+    for (let nodeId in node.peers) {
+        let peerUrl = node.peers[nodeId];
+        logger.debug(`Notifying peer ${peerUrl} about the new block`);
+        axios.post(peerUrl + "/blocks/notify-new-block", notification)
+            .then(function(){}).catch(function(){})
+    }
+};
+
+node.syncChainFromPeerInfo = async function(peerChainInfo) {
     try {
-        let peerChainInfо = await HttpRequest.get(peerUrl + "/info");
         let thisChainLen = node.chain.blocks.length;
-        let peerChainLen = peerChainInfо.blocksCount;
+        let peerChainLen = peerChainInfo.blocksCount;
         let thisChainDiff = node.chain.calcCumulativeDifficulty();
-        let peerChainDiff = peerChainInfо.cumulativeDifficulty;
+        let peerChainDiff = peerChainInfo.cumulativeDifficulty;
         if (peerChainLen > thisChainLen && peerChainDiff > thisChainDiff) {
-            let blocks = await HttpRequest.get(peerUrl + "/blocks");
-            logger.debug(`Chain syncronization started. Peer: ${peerUrl}. Expected chain length = ${peerChainLen}, expected cummulative difficulty = ${peerChainDiff}.`);
-            node.blockchain.processLongerChain(blocks);
+            logger.debug(`Chain sync started. Peer: ${peerChainInfo.nodeUrl}. Expected chain length = ${peerChainLen}, expected cummulative difficulty = ${peerChainDiff}.`);
+            let blocks = (await axios.get(peerChainInfo.nodeUrl + "/blocks")).data;
+            node.chain.processLongerChain(blocks);
         }
     } catch (err) {
         logger.error("Error loading the chain: " + err);
