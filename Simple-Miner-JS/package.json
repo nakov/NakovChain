@@ -2,7 +2,7 @@
   "name": "nakov-miner",
   "version": "1.0.0",
   "description": "Simple Miner for the Educational Blockchain Network",
-  "main": "index.js",
+  "main": "miner.js",
   "scripts": {
     "start": "node src/miner.js",
     "test": "./node_modules/.bin/mocha"
@@ -13,7 +13,7 @@
     "axios": "^0.18.0",
     "commander": "^2.15.0",
     "crypto-js": "^3.1.9-1",
-    "js-logging": "^0.1.0",
+    "js-logging": "^0.1.0"
   },
   "devDependencies": {
     "chai": "^4.1.2",
