@@ -83,19 +83,11 @@ input.address {
 	max-width: 100%;
 }
 
-textarea.result {
+textarea {
 	display: block;
 	margin-top: 5px;
 	width: calc(100% - 5px);
-	height: 200px; 
-	max-width: 100%;
-}
-
-textarea.signedTransaction {
-	display: block;
-	margin-top: 5px;
-	width: 500px;
-	height: 100px; 
+	height: 150px;
 	max-width: 100%;
 }
 
@@ -110,6 +102,11 @@ textarea.signedTransaction {
 #panelAccountInfo span {
     display: inline-block;
     width: 120px;
+}
+
+#viewSendTransaction span {
+    display: inline-block;
+    width: 80px;
 }
 
 #panelAccountInfo input {

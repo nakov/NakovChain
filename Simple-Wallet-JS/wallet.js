@@ -14,10 +14,12 @@ $(document).ready(function() {
 
     showView("viewHome");
 
+    const secp256k1 = new elliptic.ec('secp256k1');
+
     // Attach AJAX "loading" event listener
     $(document).on({
-        ajaxStart: function() { $("#loadingBox").show() },
-        ajaxStop: function() { $("#loadingBox").hide() }    
+        ajaxStart: function() { $("#loadingBox").fadeIn(200) },
+        ajaxStop: function() { $("#loadingBox").fadeOut(200) }
     });
     
     function showView(viewName) {
@@ -51,9 +53,8 @@ $(document).ready(function() {
     }
     
     function generateNewWallet() {
-		let ec = new elliptic.ec('secp256k1');
-		let keyPair = ec.genKeyPair();
-		saveKeys(keyPair);
+		let keyPair = secp256k1.genKeyPair();
+		saveKeysInSession(keyPair);
 		
 		$('#textareaCreateWalletResult').text(
 			"Generated random private key: " + sessionStorage['privKey'] + "\n" +
@@ -62,7 +63,7 @@ $(document).ready(function() {
 		);
     }
 	
-	function saveKeys(keyPair) {
+	function saveKeysInSession(keyPair) {
 		sessionStorage['privKey'] = keyPair.getPrivate().toString(16);
 		let pubKey = keyPair.getPublic().getX().toString(16) + 
 			(keyPair.getPublic().getY().isOdd() ? "1" : "0");
@@ -83,9 +84,8 @@ $(document).ready(function() {
 		    return;
         }
 
-		let ec = new elliptic.ec('secp256k1');
-        let keyPair = ec.keyFromPrivate(userPrivateKey);
-		saveKeys(keyPair);
+        let keyPair = secp256k1.keyFromPrivate(userPrivateKey);
+		saveKeysInSession(keyPair);
 		
 		$('#textareaOpenWalletResult').text(
 			"Decoded existing private key: " + sessionStorage['privKey'] + "\n" +
@@ -97,11 +97,12 @@ $(document).ready(function() {
 	async function displayBalance() {
         try {
             let address = $('#textBoxAccountAddress').val();
-            let baseUrl = $('#currentNodeUrl').val();
-            let balances =
-                await $.get(`${baseUrl}/address/${address}/balance`);
-            let transactions =
-                await $.get(`${baseUrl}/address/${address}/transactions`);
+            let nodeUrl = $('#currentNodeUrl').val();
+            let [balances, transactions] = await Promise.all([
+                $.get(`${nodeUrl}/address/${address}/balance`),
+                $.get(`${nodeUrl}/address/${address}/transactions`)
+            ]);
+
             $('#textareaAccountBalanceResult').text(
                 "Safe balance: " + balances.safeBalance + "\n" +
                 "Confirmed balance: " + balances.confirmedBalance + "\n" +
@@ -111,6 +112,7 @@ $(document).ready(function() {
             );
         }
         catch (error) {
+            console.log(error);
             $('#textareaAccountBalanceResult').text(
                 "Error: " + JSON.stringify(error)
             );
@@ -118,89 +120,49 @@ $(document).ready(function() {
     }
 	
 	function signTransaction() {
-      let privateKey = window.prompt("To sign a transaction you have to write down your private key");
-      
-      if(privateKey) {
-        let ec = new elliptic.ec('secp256k1')
-        let keyPair = ec.keyFromPrivate(privateKey)
-        let publicKey = keyPair.getPublic().getX().toString(16) + (keyPair.getPublic().getY().isOdd() ? "1" : "0")
-
-        let from = $('input[name="senderAddress"]').val()
-        let to = $('input[name="recipientAddress"]').val()
-        let value = $('input[name="transferAmount"]').val()
-        let senderPubKey = publicKey
-        let senderSignature = [""]
-        let dateCreated = new Date().toString()
-
         let transaction = {
-            from:from,
-            to:to,
-            value:value,
-            senderPubKey:senderPubKey,
-            senderSignature:senderSignature,
-            dateCreated:dateCreated
+            from: sessionStorage['address'],
+            to: $('#recipientAddress').val(),
+            value: $('#transferValue').val(),
+            fee: $('#miningFee').val(),
+            dateCreated: new Date().toISOString(),
+            senderPubKey: sessionStorage['pubKey'],
+            transactionDataHash: '',
+            senderSignature: []
         };
+        let transactionJSON = JSON.stringify(transaction);
+        transaction.transactionDataHash = new Hashes.SHA256().hex(transactionJSON);
+        transaction.senderSignature = signData(
+            transaction.transactionDataHash, sessionStorage['privKey']);
+        $('#textareaSignedTransaction').val(JSON.stringify(transaction));
+    }
 
-        let transactionJson = JSON.stringify(transaction)
-
-        let signedTransaction = [from,publicKey]
-
-        $('#textareaSignedTransaction').val(signedTransaction)
-      }
-      else {
-          window.alert("Invalid private key")
-      }
+    function signData(data, privKey) {
+        let keyPair = secp256k1.keyFromPrivate(privKey);
+        let signature = keyPair.sign(data);
+        return [signature.r.toString(16), signature.s.toString(16)];
     }
 	
-	function sendSignedTransaction() {
-        let nodeUrl = $('#textBoxNodeAccountBalance').val()
-        let url = nodeUrl + '/transactions/new'
-        let signedTransaction =  $('#textareaSignedTransaction').val()
-
-        let from = $('input[name="senderAddress"]').val()
-        let to = $('input[name="recipientAddress"]').val()
-        let value = $('input[name="transferAmount"]').val()
-        let senderPubKey = sessionStorage['pubKey']
-        let senderSignature = signedTransaction.split(',')
-        let dateCreated = "2018-02-01T23:23:56.337Z"
-
-        let signatureArray = [senderSignature[0], senderSignature[1]]
-        let transaction = {
-            from:from,
-            to:to,
-            value: Number(value),
-            senderPubKey:senderPubKey,
-            senderSignature: signatureArray,
-            dateCreated:dateCreated
+	async function sendSignedTransaction() {
+        try {
+            let nodeUrl = $('#currentNodeUrl').val();
+            let transactionJSON = $('#textareaSignedTransaction').val();
+            let result = await $.ajax({
+                type: 'POST',
+                url: `${nodeUrl}/transactions/send`,
+                data: transactionJSON,
+                contentType: 'application/json'
+            });
+            $('#textareaSendTransactionResult').text(
+                JSON.stringify(result)
+            );
         }
-
-        jsonReqeust = JSON.stringify(transaction)
-
-        $.ajax({
-            url: url,
-            method: 'post',
-            dataType: 'json',
-            data: jsonReqeust,
-            contentType: "application/json",
-            success: function(data) {
-                $('#textareaSendTransactionresult').val(data.responseJSON.transactionHash)
-            },
-            error: function(err){
-                $('#textareaSendTransactionresult').val(err.responseJSON.error)
-            }
-         })
-        // fetch(url, {
-        //     method: "post",
-        //     headers: {
-        //         'Accept': 'application/json',
-        //         'Content-Type': 'application/json'
-        //       },
-            
-        //  body: transaction
-        // })
-        // .then((response) => {
-        //     console.log(response)
-        // })
+        catch (error) {
+            console.log(error);
+            $('#textareaSendTransactionResult').text(
+                "Error: " + JSON.stringify(error)
+            );
+        }
     }
 
 	function logout() {
