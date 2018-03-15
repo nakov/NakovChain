@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Wallet - NakovChain</title>
+    <link rel="stylesheet" type="text/css" href="wallet.css" />
+    <script src="lib/jquery-3.1.1.min.js"></script>
+    <script src="lib/elliptic.js"></script>
+    <script src="lib/hashes.js"></script>
+    <script src="wallet.js"></script>
+</head>
+
+<body>
+    <header id="menu">
+        <a href="#" id="linkHome">Home</a>
+        <a href="#" id="linkCreateNewWallet">Create New Wallet</a>
+        <a href="#" id="linkOpenExistingWallet">Open Existing Wallet</a>
+        <a href="#" id="linkAccountBalance" class="after-login">Account Balance</a>
+        <a href="#" id="linkSendTransaction" class="after-login">Send Transaction</a>
+        <a href="#" id="linkLogout" class="after-login">Logout</a>
+    </header>
+
+    <main>
+        <section id="loadingBox">Loading ...</section>
+
+        <section id="infoBox"><header>x</header><p>Info</p></section>
+
+        <section id="errorBox"><header>x</header><p>Error</p></section>
+
+        <section id="viewHome">
+            <h1>Simple Wallet for the NakovChain</h1>
+            Welcome to the simple wallet for the NakovChain educational testing blockchain network.
+            <ul>
+                <li>The wallet keeps a <b>private key</b> and its associated <b>public key</b> and <b>blockchain address</b>.</li>
+                <li><b>ECDSA-based cryptography</b> is used, based on the <a href="https://en.bitcoin.it/wiki/Secp256k1">secp256k1 curve</a>.</li>
+                <li>The <b>private key</b> is 256-bit integer, encoded as <b>64 hex digits</b></li>
+                <li>The <b>public key</b> is coordinate {x, y} on the secp256k1 elliptic curve, encoded in compressed form as <b>65 hex digits</b>:
+					<ul>
+						<li>64 hex digits for the x coordinate</li>
+						<li>1 hex digit for the odd / even of y (0 or 1) at the end</li>
+					</ul>
+				</li>
+				<li>The <b> blockchain address</b> is 160-bit RIPEMD-160 hash of the compressed public key, encoded as <b>40 hex digits</b></li>
+            </ul>
+        </section>
+
+        <section id="viewCreateNewWallet">
+            <h1>Create a New Wallet</h1>
+            <p>Generate a new wallet: random private key -> public key -> address.</p>
+            <input type="button" id="buttonGenerateNewWallet" value="Generate Now" />
+            <textarea id="textareaCreateWalletResult" class="result" readonly="true"></textarea>
+        </section>
+
+        <section id="viewOpenExistingWallet">
+            <h1>Open an Existing Wallet</h1>
+            <p>Enter your wallet private key (compressed ECDSA key, 65 hex digits):</p>
+            <input type="text" id="textBoxPrivateKey" class="privateKey" />
+            <input type="button" id="buttonOpenExistingWallet" value="Open Wallet" />
+            <textarea id="textareaOpenWalletResult" class="result" readonly="true"></textarea>
+        </section>
+
+        <section id="viewAccountBalance">
+            <h1>View Account Balance</h1>
+            Address: <input type="text" id="textBoxAccountAddress" class="address" value="f3a1e69b6176052fcc4a3248f1c5a91dea308ca9"/>
+            <input type="button" id="buttonDisplayBalance" value="Display Balance" />
+            <textarea id="textareaAccountBalanceResult" class="result" readonly="true"></textarea>
+        </section>  
+
+        <section id="viewSendTransaction">
+            <h1>Send Transaction</h1>
+            <div>Sender: <input type="text" name="senderAddress" class="address" /></div>
+            <div>Recipient: <input type="text" name="recipientAddress" class="address" /></div>
+            <div>Value: <input type="number" name="transferAmount" /></div>
+            <input type="button" id="buttonSignTransaction" value="Sign Transaction" />
+            <textarea id="textareaSignedTransaction" class="signedTransaction" readonly="true"></textarea>
+			
+			<input type="button" id="buttonSendSignedTransaction" value="Send Transaction" />
+            <textarea id="textareaSendTransactionresult" class="result" readonly="true"></textarea>
+        </section>
+
+        <section id="panelAccountInfo">
+            <h1>Account Info</h1>
+            <div>
+                <span>Account address:</span>
+                <input type="text" id="currentAccountAddress" readonly="readonly" />
+            </div>
+            <div>
+                <span>Blockchain node:</span>
+                <input type="text" id="currentNodeUrl" value="http://localhost:5555" />
+            </div>
+        </section>
+    </main>
+    
+    <footer>SoftUni Chain Wallet - educational blockchain testing network</footer>
+</body>
+</html>

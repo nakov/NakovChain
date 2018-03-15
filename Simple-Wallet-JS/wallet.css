@@ -1,0 +1,124 @@
+@import url('https://fonts.googleapis.com/css?family=Lato:300,400');
+
+body {
+    font-family: Lato, Arial, sans-serif;
+    font-weight: 300;
+}
+
+#menu {
+    font-weight: 400;
+    background: #DDD;
+    text-align: center;
+    padding: 5px;
+    line-height: 1.5;
+    border-radius: 3px;
+    overflow: auto;
+}
+
+#menu a {
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+#menu a:hover {
+    background: #BBB;
+}
+
+main > section {
+    display: none;
+    padding: 20px 5px;
+}
+
+section h1 {
+    margin: 10px 0;
+    font-size: 1.2em;
+}
+
+#infoBox, #errorBox, #loadingBox {
+    width: 80%;
+    margin: 10px auto;
+    color: white;
+    text-align: center;
+    padding: 5px;
+    border-radius: 3px;
+}
+
+#infoBox>header, #errorBox>header, #loadingBox>header {
+    float: right;
+    margin-right: 5px;
+}
+
+#infoBox>header:hover, #errorBox>header:hover, #loadingBox>header:hover {
+    transition: all 0.2s;
+    font-weight: bold;
+    cursor: pointer;    
+}
+
+#loadingBox {
+    background: #7CB3E9;
+}
+#infoBox {
+    background: #393;
+}
+#errorBox {
+    background: #F50;
+}
+
+footer {
+    background: #DDD;
+    padding: 5px 10px;
+    font-size: 0.8em;
+    text-align: center;
+    border-radius: 3px;
+}
+
+input.privateKey {
+	width: 400px;
+	max-width: 100%;
+}
+
+input.address {
+	width: 300px;
+	max-width: 100%;
+}
+
+textarea.result {
+	display: block;
+	margin-top: 5px;
+	width: calc(100% - 5px);
+	height: 200px; 
+	max-width: 100%;
+}
+
+textarea.signedTransaction {
+	display: block;
+	margin-top: 5px;
+	width: 500px;
+	height: 100px; 
+	max-width: 100%;
+}
+
+#panelAccountInfo {
+    background: #ccc;
+    padding: 15px;
+    margin: 0 5px 15px 5px;
+    max-width: calc(100% - 40px);
+    border-radius: 2px;
+}
+
+#panelAccountInfo span {
+    display: inline-block;
+    width: 120px;
+}
+
+#panelAccountInfo input {
+    background: #f9f9f9;
+    border: 1px solid #aaa;
+    display: inline-block;
+    width: calc(100% - 130px);
+}
+
+#panelAccountInfo input#currentAccountAddress {
+    color: #555;
+}
