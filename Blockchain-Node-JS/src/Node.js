@@ -1,5 +1,6 @@
-const Blockchain = require("./Blockchain");
 const logger = require("js-logging").colorConsole();
+const config = require('./Config');
+const Blockchain = require("./Blockchain");
 
 let node = {
     nodeId: '',  // the nodeId uniquely identifies the
@@ -62,9 +63,13 @@ app.get('/info', (req, res) => {
 });
 
 app.get('/debug', (req, res) => {
-    const config = require('./Config');
     let confirmedBalances = node.chain.calcAllConfirmedBalances();
     res.json({node, config, confirmedBalances});
+});
+
+app.get('/debug/reset-chain', (req, res) => {
+    node.chain = new Blockchain(config.genesisBlock, config.startDifficulty);
+    res.json({message: "The chain was reset to its genesis block"});
 });
 
 app.get('/debug/mine/:minerAddress/:difficulty', (req, res) => {

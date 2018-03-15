@@ -48,6 +48,10 @@ module.exports = class Blockchain {
     }
 
     getTransactionHistory(address) {
+        if (!ValidationUtils.isValidAddress(address)) {
+            return { errorMsg: "Invalid address" };
+        }
+
         let transactions = this.getAllTransactions();
         let transactionsByAddress = transactions.filter(
             t => t.from === address || t.to === address);
@@ -57,18 +61,16 @@ module.exports = class Blockchain {
     }
 
     getAccountBalance(address) {
+        if (!ValidationUtils.isValidAddress(address)) {
+            return { errorMsg: "Invalid address" };
+        }
+
+        let transactions = this.getTransactionHistory(address);
         let balance = {
             "safeBalance": 0,
             "confirmedBalance": 0,
             "pendingBalance": 0
         };
-
-        let transactions = this.getTransactionHistory(address);
-        if (transactions.length === 0) {
-            balance.errorMsg = "No transactions";
-            return balance;
-        }
-
         for (let tran of transactions) {
             let confirmsCount = 0;
             if (typeof(tran.minedInBlockIndex) === 'number') {
@@ -289,7 +291,7 @@ module.exports = class Blockchain {
     processLongerChain(blocks) {
         // TODO: validate the chain (it should be longer, should hold valid blocks, each block should hold valid transactions, etc.
         this.blocks = blocks;
-        this.removePendingTransactions(this.getAllTransactions());
+        this.removePendingTransactions(this.getConfirmedTransactions());
         logger.info("Chain sync successful. Block count = " + blocks.length);
     }
 
@@ -317,8 +319,8 @@ module.exports = class Blockchain {
         } while (!ValidationUtils.isValidDifficulty(nextBlock.blockHash, difficulty));
 
         // Submit the mined block
-        let result = this.submitMinedBlock(nextBlock.blockDataHash,
+        let newBlock = this.submitMinedBlock(nextBlock.blockDataHash,
             nextBlock.dateCreated, nextBlock.nonce, nextBlock.blockHash);
-        return result;
+        return newBlock;
     }
 };
