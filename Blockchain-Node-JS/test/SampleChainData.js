@@ -47,7 +47,7 @@ bobFaucetTran.sign(config.faucetPrivateKey);
 let aliceToBobTranOK = new Transaction(
     aliceAddress,             // from address
     bobAddress,               // to address
-    9999,                     // value of transfer
+    400000,                   // value of transfer
     20,                       // fee
     currentDateMinus(700),    // dateCreated
     "Alice -> Bob",           // data (payload / comments)
@@ -55,36 +55,25 @@ let aliceToBobTranOK = new Transaction(
 );
 aliceToBobTranOK.sign(alicePrivateKey);
 
-let aliceToBobTranNoFunds = new Transaction(
-    aliceAddress,              // from address
-    bobAddress,                // to address
-    1234567890,                // value of transfer
-    20,                        // fee
-    currentDateMinus(600),     // dateCreated
-    "Alice -> Bob (no funds)", // data (payload / comments)
-    alicePubKey                // senderPubKey
+let aliceToPeterTranNoFunds = new Transaction(
+    aliceAddress,                // from address
+    peterAddress,                // to address
+    400000,                      // value of transfer
+    20,                          // fee
+    currentDateMinus(700),       // dateCreated
+    "Alice -> Peter (no funds)", // data (payload / comments)
+    alicePubKey                  // senderPubKey
 );
-aliceToBobTranNoFunds.sign(alicePrivateKey);
-
-let peterToBobTranZeroBalance = new Transaction(
-    peterAddress,               // from address
-    bobAddress,                 // to address
-    8888888,                    // value of transfer
-    config.minTransactionFee,   // fee
-    currentDateMinus(500),      // dateCreated
-    "Peter -> Bob (no funds)",  // data (payload / comments)
-    peterPubKey                 // senderPubKey
-);
-peterToBobTranZeroBalance.sign(peterPrivateKey);
+aliceToPeterTranNoFunds.sign(alicePrivateKey);
 
 let alicePendingFaucetTran = new Transaction(
-    config.faucetAddress,     // from address
-    aliceAddress,             // to address
-    400000,                   // value of transfer
-    config.minTransactionFee, // fee
-    currentDateMinus(400),    // dateCreated
-    "Faucet -> Alice",        // data (payload / comments)
-    config.faucetPublicKey    // senderPubKey
+    config.faucetAddress,      // from address
+    aliceAddress,              // to address
+    400000,                    // value of transfer
+    config.minTransactionFee,  // fee
+    currentDateMinus(400),     // dateCreated
+    "Faucet -> Alice (again)", // data (payload / comments)
+    config.faucetPublicKey     // senderPubKey
 );
 alicePendingFaucetTran.sign(config.faucetPrivateKey);
 
@@ -108,8 +97,7 @@ function insertSampleChainData(chain) {
     mineTheNextBlock(1);
 
     insertTransaction(chain, aliceToBobTranOK);
-    insertTransaction(chain, peterToBobTranZeroBalance);
-    insertTransaction(chain, aliceToBobTranNoFunds);
+    insertTransaction(chain, aliceToPeterTranNoFunds);
 
     mineTheNextBlock(2);
 
