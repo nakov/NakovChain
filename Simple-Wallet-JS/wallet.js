@@ -123,12 +123,11 @@ $(document).ready(function() {
         let transaction = {
             from: sessionStorage['address'],
             to: $('#recipientAddress').val(),
-            value: $('#transferValue').val(),
-            fee: $('#miningFee').val(),
+            value: parseInt($('#transferValue').val()),
+            fee: parseInt($('#miningFee').val()),
             dateCreated: new Date().toISOString(),
-            senderPubKey: sessionStorage['pubKey'],
-            transactionDataHash: '',
-            senderSignature: []
+            data: $('#tranData').val(),
+            senderPubKey: sessionStorage['pubKey']
         };
         let transactionJSON = JSON.stringify(transaction);
         transaction.transactionDataHash = new Hashes.SHA256().hex(transactionJSON);
