@@ -152,15 +152,15 @@ module.exports = class Blockchain {
         if (! tran.verifySignature())
             return {errorMsg: "Invalid signature: " + tranData.senderSignature};
 
+        let balances = this.getAccountBalance(tran.from);
+        if (balances.confirmedBalance < tran.value + tran.fee)
+            return {errorMsg: "Unsufficient sender balance at address: " + tran.from};
+
         this.pendingTransactions.push(tran);
         logger.debug("Added pending transaction: " + JSON.stringify(tran));
 
         return tran;
     }
-
-    // addNewBlock(blockInfo) {
-    //     // TODO: validate the new block and eventually add it to the chain
-    // }
 
     // @return map(address -> balance)
     calcAllConfirmedBalances() {
@@ -185,7 +185,7 @@ module.exports = class Blockchain {
         let transactions = JSON.parse(JSON.stringify(this.getPendingTransactions()));
         transactions.sort((a, b) => b.fee - a.fee); // sort descending by fee
 
-        // Insert the coinbase transaction, holding the block reward + tx fees
+        // Prepare the coinbase transaction -> it will collect all tx fees
         let coinbaseTransaction = new Transaction(
             config.nullAddress,       // from (address)
             minerAddress,             // to (address)
@@ -230,7 +230,7 @@ module.exports = class Blockchain {
             }
         }
 
-        // Insert the coinbase transaction at the start
+        // Insert the coinbase transaction, holding the block reward + tx fees
         coinbaseTransaction.calculateDataHash();
         transactions.unshift(coinbaseTransaction);
 
@@ -293,6 +293,7 @@ module.exports = class Blockchain {
         this.blocks = blocks;
         this.removePendingTransactions(this.getConfirmedTransactions());
         logger.info("Chain sync successful. Block count = " + blocks.length);
+        return true;
     }
 
     removePendingTransactions(transactionsToRemove) {

@@ -1,6 +1,11 @@
 /Blockchain-Node-JS/.idea
 /Blockchain-Node-JS/node_modules
 /Blockchain-Node-JS/package-lock.json
+
 /Simple-Miner-JS/.idea
 /Simple-Miner-JS/node_modules
 /Simple-Miner-JS/package-lock.json
+
+/Simple-Wallet-JS/.idea
+/Simple-Wallet-JS/node_modules
+/Simple-Wallet-JS/package-lock.json

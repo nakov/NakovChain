@@ -111,6 +111,11 @@ app.get('/transactions/:tranHash', (req, res) => {
         res.status(HttpStatus.NOT_FOUND).json({errorMsg: "Invalid transaction hash"});
 });
 
+app.get('/balances', (req, res) => {
+    let confirmedBalances = node.chain.calcAllConfirmedBalances();
+    res.json(confirmedBalances);
+});
+
 app.get('/address/:address/transactions', (req, res) => {
     let address = req.params.address;
     let tranHistory = node.chain.getTransactionHistory(address);
@@ -126,15 +131,17 @@ app.get('/address/:address/balance', (req, res) => {
 });
 
 app.post('/transactions/send', (req, res) => {
-    let sendResult = node.sendNewTransaction(req.body);
-    if (sendResult.transactionDataHash) {
+    let tran = node.chain.addNewTransaction(req.body);
+    if (tran.transactionDataHash) {
+        // Added a new pending transaction --> broadcast it to all known peers
+        node.broadcastTransactionToAllPeers(tran);
+
         res.status(HttpStatus.CREATED).json({
             transactionDataHash: tran.transactionDataHash
         });
-        // TODO: send the transaction to all known peers
     }
     else
-        res.status(HttpStatus.BAD_REQUEST).json(sendResult);
+        res.status(HttpStatus.BAD_REQUEST).json(tran);
 });
 
 app.get('/peers', (req, res) => {
@@ -159,6 +166,7 @@ app.post('/peers/connect', (req, res) => {
                 node.peers[result.data.nodeId] = peerUrl;
                 logger.debug("Successfully connected to peer: " + peerUrl);
                 node.syncChainFromPeerInfo(result.data);
+                node.syncPendingTransactionsFromPeerInfo(result.data);
                 res.json({message: "Connected to peer: " + peerUrl});
 
                 // Try to connect back the remote peer to self
@@ -171,6 +179,11 @@ app.post('/peers/connect', (req, res) => {
             res.status(HttpStatus.BAD_REQUEST).json(
                 {errorMsg: "Cannot connect to peer: " + peerUrl});
         });
+});
+
+app.post('/peers/notify-new-block', (req, res) => {
+    node.syncChainFromPeerInfo(req.body);
+    res.json({ message: "Thank you for the notification." });
 });
 
 app.get('/mining/get-mining-job/:address', (req, res) => {
@@ -203,11 +216,6 @@ app.post('/mining/submit-mined-block', (req, res) => {
     }
 });
 
-app.post('/blocks/notify-new-block', (req, res) => {
-    node.syncChainFromPeerInfo(req.body);
-    res.json({ message: "Thank you for the notification." });
-});
-
 node.notifyPeersAboutNewBlock = async function() {
     let notification = {
         blocksCount: node.chain.blocks.length,
@@ -217,7 +225,16 @@ node.notifyPeersAboutNewBlock = async function() {
     for (let nodeId in node.peers) {
         let peerUrl = node.peers[nodeId];
         logger.debug(`Notifying peer ${peerUrl} about the new block`);
-        axios.post(peerUrl + "/blocks/notify-new-block", notification)
+        axios.post(peerUrl + "/peers/notify-new-block", notification)
+            .then(function(){}).catch(function(){})
+    }
+};
+
+node.broadcastTransactionToAllPeers = async function(tran) {
+    for (let nodeId in node.peers) {
+        let peerUrl = node.peers[nodeId];
+        logger.debug(`Broadcasting a transaction ${tran.transactionsHash} to peer ${peerUrl}`);
+        axios.post(peerUrl + "/transactions/send", tran)
             .then(function(){}).catch(function(){})
     }
 };
@@ -231,10 +248,33 @@ node.syncChainFromPeerInfo = async function(peerChainInfo) {
         if (peerChainLen > thisChainLen && peerChainDiff > thisChainDiff) {
             logger.debug(`Chain sync started. Peer: ${peerChainInfo.nodeUrl}. Expected chain length = ${peerChainLen}, expected cummulative difficulty = ${peerChainDiff}.`);
             let blocks = (await axios.get(peerChainInfo.nodeUrl + "/blocks")).data;
-            node.chain.processLongerChain(blocks);
+            let chainIncreased = node.chain.processLongerChain(blocks);
+            if (chainIncreased) {
+                node.notifyPeersAboutNewBlock();
+            }
         }
     } catch (err) {
         logger.error("Error loading the chain: " + err);
+    }
+};
+
+node.syncPendingTransactionsFromPeerInfo = async function(peerChainInfo) {
+    try {
+        if (peerChainInfo.pendingTransactions) {
+            logger.debug(
+                `Pending transactions sync started. Peer: ${peerChainInfo.nodeUrl}`);
+            let transactions = (await axios.get(
+                peerChainInfo.nodeUrl + "/transactions/pending")).data;
+            for (let tran of transactions) {
+                let addedTran = node.chain.addNewTransaction(tran);
+                if (addedTran.transactionsHash) {
+                    // Added a new pending tx --> broadcast it to all known peers
+                    node.broadcastTransactionToAllPeers(addedTran);
+                }
+            }
+        }
+    } catch (err) {
+        logger.error("Error loading the pending transactions: " + err);
     }
 };
 
