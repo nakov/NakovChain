@@ -157,7 +157,11 @@ app.post('/peers/connect', (req, res) => {
     logger.debug("Trying to connect to peer: " + peerUrl);
     axios.get(peerUrl + "/info")
         .then(function(result) {
-            if (node.peers[result.data.nodeId]) {
+            if (node.nodeId == result.data.nodeId) {
+                res.status(HttpStatus.CONFLICT)
+                    .json({errorMsg: "Cannot connect to self"});
+            }
+            else if (node.peers[result.data.nodeId]) {
                 logger.debug("Error: already connected to peer: " + peerUrl);
                 res.status(HttpStatus.CONFLICT)
                     .json({errorMsg: "Already connected to peer: " + peerUrl});
@@ -165,13 +169,16 @@ app.post('/peers/connect', (req, res) => {
             else {
                 node.peers[result.data.nodeId] = peerUrl;
                 logger.debug("Successfully connected to peer: " + peerUrl);
-                node.syncChainFromPeerInfo(result.data);
-                node.syncPendingTransactionsFromPeerInfo(result.data);
-                res.json({message: "Connected to peer: " + peerUrl});
 
                 // Try to connect back the remote peer to self
                 axios.post(peerUrl + "/peers/connect", {peerUrl: node.selfUrl})
-                    .then(function(){}).catch(function(){})
+                    .then(function(){}).catch(function(){});
+
+                // Synchronize the blockchain + pending transactions
+                node.syncChainFromPeerInfo(result.data);
+                node.syncPendingTransactionsFromPeerInfo(result.data);
+
+                res.json({message: "Connected to peer: " + peerUrl});
             }
         })
         .catch(function(error) {
@@ -267,7 +274,7 @@ node.syncPendingTransactionsFromPeerInfo = async function(peerChainInfo) {
                 peerChainInfo.nodeUrl + "/transactions/pending")).data;
             for (let tran of transactions) {
                 let addedTran = node.chain.addNewTransaction(tran);
-                if (addedTran.transactionsHash) {
+                if (addedTran.transactionDataHash) {
                     // Added a new pending tx --> broadcast it to all known peers
                     node.broadcastTransactionToAllPeers(addedTran);
                 }
