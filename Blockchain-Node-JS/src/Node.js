@@ -8,17 +8,18 @@ let node = {
     port: 0,     // listening TCP port number
     selfUrl: '', // the external base URL of the REST endpoints
     peers: {},   // a map(nodeId --> url) of the peers, connected to this node
-    chain: new Blockchain() // the blockchain (blocks, transactions, ...)
+    chain: new Blockchain(), // the blockchain (blocks, transactions, ...)
+    chainId: ''  // the unique chain ID (hash of the genesis block)
 };
 
 node.init = function(serverHost, serverPort, blockchain) {
+    node.nodeId = (new Date()).getTime().toString(16) +
+        Math.random().toString(16).substring(2);
     node.host = serverHost;
     node.port = serverPort;
     node.selfUrl = `http://${serverHost}:${serverPort}`;
-    node.chain = blockchain;
     node.peers = {};
-    node.nodeId = (new Date()).getTime().toString(16) +
-        Math.random().toString(16).substring(2);
+    node.chain = blockchain;
     node.chainId = node.chain.blocks[0].blockHash;
 };
 
@@ -53,7 +54,7 @@ app.get('/info', (req, res) => {
         "nodeId": node.nodeId,
         "chainId": node.chainId,
         "nodeUrl": node.selfUrl,
-        "peers": node.peers.length,
+        "peers": Object.keys(node.peers).length,
         "currentDifficulty": node.chain.currentDifficulty,
         "blocksCount": node.chain.blocks.length,
         "cumulativeDifficulty": node.chain.calcCumulativeDifficulty(),
@@ -165,6 +166,11 @@ app.post('/peers/connect', (req, res) => {
                 logger.debug("Error: already connected to peer: " + peerUrl);
                 res.status(HttpStatus.CONFLICT)
                     .json({errorMsg: "Already connected to peer: " + peerUrl});
+            }
+            else if (node.chainId !== result.data.chainId) {
+                logger.debug("Error: chain ID cannot be different");
+                res.status(HttpStatus.BAD_REQUEST)
+                    .json({errorMsg: "Nodes should have the same chain ID"});
             }
             else {
                 node.peers[result.data.nodeId] = peerUrl;

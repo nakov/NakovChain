@@ -49,7 +49,7 @@ module.exports = {
     nullAddress,
     nullPubKey,
     nullSignature,
-    startDifficulty: 4,
+    startDifficulty: 5,
     minTransactionFee: 10,
     maxTransactionFee: 1000000,
     blockReward: 5000000,
