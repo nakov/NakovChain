@@ -291,6 +291,7 @@ module.exports = class Blockchain {
     processLongerChain(blocks) {
         // TODO: validate the chain (it should be longer, should hold valid blocks, each block should hold valid transactions, etc.
         this.blocks = blocks;
+        this.miningJobs = {}; // Invalidate all mining jobs
         this.removePendingTransactions(this.getConfirmedTransactions());
         logger.info("Chain sync successful. Block count = " + blocks.length);
         return true;

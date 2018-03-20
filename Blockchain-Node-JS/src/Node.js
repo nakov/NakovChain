@@ -173,6 +173,10 @@ app.post('/peers/connect', (req, res) => {
                     .json({errorMsg: "Nodes should have the same chain ID"});
             }
             else {
+                // Remove all peers with the same URL + add the new peer
+                for (let nodeId in node.peers)
+                    if (node.peers[nodeId] === peerUrl)
+                        delete node.peers[nodeId];
                 node.peers[result.data.nodeId] = peerUrl;
                 logger.debug("Successfully connected to peer: " + peerUrl);
 
