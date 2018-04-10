@@ -3,7 +3,7 @@ const config = require('./Config');
 const Blockchain = require("./Blockchain");
 
 let node = {
-    nodeId: '',  // the nodeId uniquely identifies the
+    nodeId: '',  // the nodeId uniquely identifies the current node
     host: '',    // the external host / IP address to connect to this node
     port: 0,     // listening TCP port number
     selfUrl: '', // the external base URL of the REST endpoints
@@ -158,7 +158,7 @@ app.post('/peers/connect', (req, res) => {
     logger.debug("Trying to connect to peer: " + peerUrl);
     axios.get(peerUrl + "/info")
         .then(function(result) {
-            if (node.nodeId == result.data.nodeId) {
+            if (node.nodeId === result.data.nodeId) {
                 res.status(HttpStatus.CONFLICT)
                     .json({errorMsg: "Cannot connect to self"});
             }
@@ -258,12 +258,10 @@ node.broadcastTransactionToAllPeers = async function(tran) {
 
 node.syncChainFromPeerInfo = async function(peerChainInfo) {
     try {
-        let thisChainLen = node.chain.blocks.length;
-        let peerChainLen = peerChainInfo.blocksCount;
         let thisChainDiff = node.chain.calcCumulativeDifficulty();
         let peerChainDiff = peerChainInfo.cumulativeDifficulty;
-        if (peerChainLen > thisChainLen && peerChainDiff > thisChainDiff) {
-            logger.debug(`Chain sync started. Peer: ${peerChainInfo.nodeUrl}. Expected chain length = ${peerChainLen}, expected cummulative difficulty = ${peerChainDiff}.`);
+        if (peerChainDiff > thisChainDiff) {
+            logger.debug(`Chain sync started. Peer: ${peerChainInfo.nodeUrl}. Expected chain length = ${peerChainInfo.blocksCount}, expected cummulative difficulty = ${peerChainDiff}.`);
             let blocks = (await axios.get(peerChainInfo.nodeUrl + "/blocks")).data;
             let chainIncreased = node.chain.processLongerChain(blocks);
             if (chainIncreased) {
@@ -277,7 +275,7 @@ node.syncChainFromPeerInfo = async function(peerChainInfo) {
 
 node.syncPendingTransactionsFromPeerInfo = async function(peerChainInfo) {
     try {
-        if (peerChainInfo.pendingTransactions) {
+        if (peerChainInfo.pendingTransactions > 0) {
             logger.debug(
                 `Pending transactions sync started. Peer: ${peerChainInfo.nodeUrl}`);
             let transactions = (await axios.get(
