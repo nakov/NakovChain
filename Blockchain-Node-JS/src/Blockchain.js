@@ -16,7 +16,7 @@ module.exports = class Blockchain {
     calcCumulativeDifficulty() {
         let difficulty = 0;
         for (let block of this.blocks) {
-            difficulty += block.difficulty;
+            difficulty += 16 ** block.difficulty;
         }
         return difficulty;
     }
